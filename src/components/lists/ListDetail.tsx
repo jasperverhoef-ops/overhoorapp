@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Trash2, Play, Camera } from 'lucide-react';
+import { Trash2, Play, Camera, ClipboardPaste } from 'lucide-react';
 import { db } from '../../db';
 import { Header } from '../layout/Header';
 import { WordEditor } from './WordEditor';
 import { ScanDialog } from './ScanDialog';
+import { PasteDialog } from './PasteDialog';
 import { Button } from '../ui/Button';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 
@@ -13,6 +14,7 @@ export function ListDetail() {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
   const [showScan, setShowScan] = useState(false);
+  const [showPaste, setShowPaste] = useState(false);
 
   const list = useLiveQuery(() =>
     listId ? db.wordLists.get(listId) : undefined, [listId]
@@ -75,17 +77,30 @@ export function ListDetail() {
 
         <WordEditor listId={list.id} sourceLanguage={list.sourceLanguage} />
 
-        <Button
-          variant="secondary"
-          size="md"
-          className="w-full"
-          onClick={() => setShowScan(true)}
-        >
-          <span className="flex items-center justify-center gap-2">
-            <Camera className="w-4 h-4" />
-            Scan foto
-          </span>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="md"
+            className="flex-1"
+            onClick={() => setShowPaste(true)}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <ClipboardPaste className="w-4 h-4" />
+              Plak lijst
+            </span>
+          </Button>
+          <Button
+            variant="secondary"
+            size="md"
+            className="flex-1"
+            onClick={() => setShowScan(true)}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <Camera className="w-4 h-4" />
+              Scan foto
+            </span>
+          </Button>
+        </div>
 
         {words.length > 0 && (
           <div className="space-y-2">
@@ -113,6 +128,13 @@ export function ListDetail() {
           </div>
         )}
       </div>
+
+      {showPaste && (
+        <PasteDialog
+          listId={list.id}
+          onClose={() => setShowPaste(false)}
+        />
+      )}
 
       {showScan && (
         <ScanDialog
