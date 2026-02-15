@@ -17,7 +17,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/overhoorapp">
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route

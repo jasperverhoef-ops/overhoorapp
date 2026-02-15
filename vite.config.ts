@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base: '/overhoorapp/',
   plugins: [
     react(),
     tailwindcss(),
@@ -14,7 +15,7 @@ export default defineConfig({
         name: 'TaalTrainer',
         short_name: 'TaalTrainer',
         description: 'Overhoor je kinderen op woordjes met het 3-rondes systeem',
-        start_url: '/',
+        start_url: '/overhoorapp/',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#ffffff',
