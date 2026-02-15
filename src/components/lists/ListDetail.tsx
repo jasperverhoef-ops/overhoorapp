@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Trash2, Play } from 'lucide-react';
+import { Trash2, Play, Camera } from 'lucide-react';
 import { db } from '../../db';
 import { Header } from '../layout/Header';
 import { WordEditor } from './WordEditor';
+import { ScanDialog } from './ScanDialog';
 import { Button } from '../ui/Button';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 
 export function ListDetail() {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
+  const [showScan, setShowScan] = useState(false);
 
   const list = useLiveQuery(() =>
     listId ? db.wordLists.get(listId) : undefined, [listId]
@@ -72,6 +75,18 @@ export function ListDetail() {
 
         <WordEditor listId={list.id} sourceLanguage={list.sourceLanguage} />
 
+        <Button
+          variant="secondary"
+          size="md"
+          className="w-full"
+          onClick={() => setShowScan(true)}
+        >
+          <span className="flex items-center justify-center gap-2">
+            <Camera className="w-4 h-4" />
+            Scan foto
+          </span>
+        </Button>
+
         {words.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
@@ -98,6 +113,14 @@ export function ListDetail() {
           </div>
         )}
       </div>
+
+      {showScan && (
+        <ScanDialog
+          listId={list.id}
+          sourceLanguage={list.sourceLanguage}
+          onClose={() => setShowScan(false)}
+        />
+      )}
     </div>
   );
 }
