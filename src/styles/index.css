@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --color-good: #22c55e;
+  --color-wrong: #ef4444;
+  --color-hint: #3b82f6;
+  --color-warning: #f59e0b;
+  --color-round1: #3b82f6;
+  --color-round2: #22c55e;
+  --color-round3: #ef4444;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Flash animations for answer feedback */
+@keyframes flash-green {
+  0% { background-color: rgba(34, 197, 94, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-red {
+  0% { background-color: rgba(239, 68, 68, 0.3); }
+  100% { background-color: transparent; }
+}
+
+.flash-good {
+  animation: flash-green 400ms ease-out;
+}
+
+.flash-wrong {
+  animation: flash-red 400ms ease-out;
+}
+
+/* Smooth page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
