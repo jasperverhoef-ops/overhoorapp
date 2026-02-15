@@ -21,6 +21,8 @@ export function getTesseractLangs(sourceLanguage: Language): string {
     fr: 'fra+nld',
     de: 'deu+nld',
     es: 'spa+nld',
+    la: 'lat+nld',
+    el: 'grc+nld',
     other: 'nld',
   };
   return map[sourceLanguage];

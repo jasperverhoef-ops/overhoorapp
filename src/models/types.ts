@@ -1,4 +1,4 @@
-export type Language = 'en' | 'fr' | 'de' | 'es' | 'other';
+export type Language = 'en' | 'fr' | 'de' | 'es' | 'la' | 'el' | 'other';
 export type AnswerResult = 'correct' | 'wrong';
 export type SessionStatus = 'in-progress' | 'completed' | 'abandoned';
 export type Direction = 'source-to-dutch' | 'dutch-to-source';
@@ -105,6 +105,8 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
   fr: 'Frans',
   de: 'Duits',
   es: 'Spaans',
+  la: 'Latijn',
+  el: 'Grieks',
   other: 'Anders',
 };
 
@@ -113,5 +115,7 @@ export const LANGUAGE_FLAGS: Record<Language, string> = {
   fr: '\u{1F1EB}\u{1F1F7}',
   de: '\u{1F1E9}\u{1F1EA}',
   es: '\u{1F1EA}\u{1F1F8}',
+  la: '\u{1F3DB}\u{FE0F}',
+  el: '\u{1F1EC}\u{1F1F7}',
   other: '\u{1F310}',
 };

@@ -11,7 +11,7 @@ interface CreateListDialogProps {
   onCreated: (listId: string) => void;
 }
 
-const languages: Language[] = ['en', 'fr', 'de', 'es'];
+const languages: Language[] = ['en', 'fr', 'de', 'es', 'la', 'el'];
 
 export function CreateListDialog({ onClose, onCreated }: CreateListDialogProps) {
   const [name, setName] = useState('');
@@ -66,7 +66,7 @@ export function CreateListDialog({ onClose, onCreated }: CreateListDialogProps) 
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Taal
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {languages.map((lang) => (
                 <button
                   key={lang}

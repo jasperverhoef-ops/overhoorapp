@@ -36,12 +36,42 @@ export function ScanDialog({ listId, sourceLanguage, onClose }: ScanDialogProps)
     await runOcr(file);
   };
 
+  const resizeImage = (file: File, maxWidth: number): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        if (img.naturalWidth <= maxWidth) {
+          resolve(file);
+          return;
+        }
+        const scale = maxWidth / img.naturalWidth;
+        const canvas = document.createElement('canvas');
+        canvas.width = maxWidth;
+        canvas.height = Math.round(img.naturalHeight * scale);
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => resolve(blob || file), 'image/png');
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
+  };
+
   const runOcr = async (imageFile: File) => {
     setPhase('processing');
     setProgress(0);
-    setStatusText('OCR-model laden...');
+    setStatusText('Afbeelding voorbereiden...');
 
     try {
+      // Resize large images for faster OCR and less memory usage
+      const processedImage = await resizeImage(imageFile, 2000);
+
+      setStatusText('OCR-model laden...');
       const Tesseract = await import('tesseract.js');
       const langs = getTesseractLangs(sourceLanguage);
 
@@ -56,7 +86,7 @@ export function ScanDialog({ listId, sourceLanguage, onClose }: ScanDialogProps)
         },
       });
 
-      const result = await worker.recognize(imageFile);
+      const result = await worker.recognize(processedImage, {}, { blocks: true });
       await worker.terminate();
 
       // Extract all words from nested structure: blocks > paragraphs > lines > words
@@ -72,12 +102,12 @@ export function ScanDialog({ listId, sourceLanguage, onClose }: ScanDialogProps)
       }
       const words = allWords;
 
-      // Use image dimensions for parsing
+      // Get processed image width for column detection
       const img = new Image();
       const imageWidth = await new Promise<number>((resolve) => {
         img.onload = () => resolve(img.naturalWidth);
-        img.onerror = () => resolve(1000); // fallback
-        img.src = URL.createObjectURL(imageFile);
+        img.onerror = () => resolve(1000);
+        img.src = URL.createObjectURL(processedImage);
       });
       URL.revokeObjectURL(img.src);
 
