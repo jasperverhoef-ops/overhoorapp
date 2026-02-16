@@ -5,12 +5,20 @@ interface SpeechRecognitionConstructor {
   new (): SpeechRecognitionInstance;
 }
 
+interface SpeechRecognitionResult {
+  readonly results: { readonly [index: number]: { readonly [index: number]: { transcript: string; confidence: number } } };
+}
+
+interface SpeechRecognitionError {
+  readonly error: string;
+}
+
 interface SpeechRecognitionInstance {
   lang: string;
   interimResults: boolean;
   maxAlternatives: number;
-  onresult: ((event: any) => void) | null;
-  onerror: ((event: any) => void) | null;
+  onresult: ((event: SpeechRecognitionResult) => void) | null;
+  onerror: ((event: SpeechRecognitionError) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -54,12 +62,12 @@ export function listenForAnswer(
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionResult) => {
       const result = event.results[0][0];
       resolve(result.transcript.toLowerCase().trim());
     };
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: SpeechRecognitionError) => {
       reject(new Error(event.error));
     };
 

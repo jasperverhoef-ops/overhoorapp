@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Trophy, Star, Clock, Target } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Button } from '../ui/Button';
@@ -32,44 +32,41 @@ export function SessionComplete({ childName, listName, rounds, allWords, onFinis
   const totalWords = rounds.reduce((sum, r) => sum + r.totalWords, 0);
   const scorePercentage = totalWords > 0 ? (totalCorrect / totalWords) * 100 : 0;
 
-  // Get encouragement message based on performance
-  const getEncouragementMessage = () => {
+  // Get encouragement message based on performance (memoized to avoid re-randomizing on re-render)
+  const encouragementMessage = useMemo(() => {
+    const pick = (messages: string[]) => messages[Math.floor(Math.random() * messages.length)];
+
     if (isPerfect) {
-      const messages = [
+      return pick([
         'Ongelooflijk! Alles goed in één keer! 🌟',
         'Perfecte score! Je bent een woordenmeester! 🏆',
         'Wauw! Geen enkele fout gemaakt! 💯',
         'Fantastisch! Alles perfect onthouden! ⭐',
-      ];
-      return messages[Math.floor(Math.random() * messages.length)];
+      ]);
     } else if (scorePercentage >= 90) {
-      const messages = [
+      return pick([
         'Super gedaan! Bijna alles goed! 🎉',
         'Uitstekend werk! Je hebt het bijna helemaal gekend! 👏',
         'Geweldig! Je zit er bijna! 🌟',
         'Top prestatie! Nog even oefenen en het is perfect! 💪',
-      ];
-      return messages[Math.floor(Math.random() * messages.length)];
+      ]);
     } else if (scorePercentage >= 75) {
-      const messages = [
+      return pick([
         'Goed gedaan! Je maakt mooie vooruitgang! 👍',
         'Prima werk! Blijf zo doorgaan! 📚',
         'Lekker bezig! Je leert ze steeds beter! 💡',
         'Mooi resultaat! Je bent op de goede weg! ⭐',
-      ];
-      return messages[Math.floor(Math.random() * messages.length)];
+      ]);
     } else {
-      const messages = [
+      return pick([
         'Goed geprobeerd! Oefening baart kunst! 💪',
         'Prima begin! Blijf oefenen, het wordt makkelijker! 📖',
         'Je kunt het! Probeer het morgen nog eens! 🌱',
         'Goed bezig! Elke sessie leer je meer! 🎯',
-      ];
-      return messages[Math.floor(Math.random() * messages.length)];
+      ]);
     }
-  };
-
-  const encouragementMessage = getEncouragementMessage();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPerfect, scorePercentage >= 90, scorePercentage >= 75]);
 
   // Trigger confetti for perfect score
   useEffect(() => {
@@ -151,18 +148,22 @@ export function SessionComplete({ childName, listName, rounds, allWords, onFinis
         <div className="w-full max-w-xs space-y-2 mb-6">
           {rounds.map((round) => {
             const pct = Math.round((round.directCorrect / round.totalWords) * 100);
-            const colorMap = { 1: 'blue', 2: 'green', 3: 'red' } as const;
-            const color = colorMap[round.roundNumber];
+            const colorStyles = {
+              1: { bg: 'bg-blue-50', text: 'text-blue-800', bold: 'text-blue-900' },
+              2: { bg: 'bg-green-50', text: 'text-green-800', bold: 'text-green-900' },
+              3: { bg: 'bg-red-50', text: 'text-red-800', bold: 'text-red-900' },
+            } as const;
+            const styles = colorStyles[round.roundNumber];
 
             return (
               <div
                 key={round.roundNumber}
-                className={`flex items-center justify-between bg-${color}-50 rounded-xl px-4 py-3`}
+                className={`flex items-center justify-between ${styles.bg} rounded-xl px-4 py-3`}
               >
-                <span className={`font-medium text-${color}-800`}>
+                <span className={`font-medium ${styles.text}`}>
                   Ronde {round.roundNumber}
                 </span>
-                <span className={`font-bold text-${color}-900`}>
+                <span className={`font-bold ${styles.bold}`}>
                   {round.roundNumber === 3
                     ? `${round.difficultWordCount} woorden gekend`
                     : `${round.directCorrect}/${round.totalWords} (${pct}%)`

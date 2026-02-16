@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Trash2, Play, ClipboardPaste, Share2, Pencil, Check, Undo2 } from 'lucide-react';
+import { Trash2, Play, ClipboardPaste, Camera, Share2, Pencil, Check, Undo2 } from 'lucide-react';
 import { db } from '../../db';
 import { Header } from '../layout/Header';
 import { WordEditor } from './WordEditor';
 import { PasteDialog } from './PasteDialog';
+import { ScanDialog } from './ScanDialog';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Button } from '../ui/Button';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
@@ -15,6 +16,7 @@ export function ListDetail() {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
   const [showPaste, setShowPaste] = useState(false);
+  const [showScan, setShowScan] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'list' } | { type: 'word'; wordId: string } | null>(null);
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [editSource, setEditSource] = useState('');
@@ -28,6 +30,12 @@ export function ListDetail() {
   const words = useLiveQuery(() =>
     listId ? db.words.where('listId').equals(listId).toArray() : [], [listId]
   );
+
+  const undoDelete = useCallback(async () => {
+    if (!deletedWord) return;
+    await db.words.add(deletedWord);
+    setDeletedWord(null);
+  }, [deletedWord]);
 
   if (!list || !words) {
     return <div className="p-4 text-center text-gray-500">Laden...</div>;
@@ -43,12 +51,6 @@ export function ListDetail() {
     await db.words.delete(wordId);
     setConfirmDelete(null);
   };
-
-  const undoDelete = useCallback(async () => {
-    if (!deletedWord) return;
-    await db.words.add(deletedWord);
-    setDeletedWord(null);
-  }, [deletedWord]);
 
   const deleteList = async () => {
     if (!listId) return;
@@ -144,17 +146,30 @@ export function ListDetail() {
 
         <WordEditor listId={list.id} sourceLanguage={list.sourceLanguage} />
 
-        <Button
-          variant="secondary"
-          size="md"
-          className="w-full"
-          onClick={() => setShowPaste(true)}
-        >
-          <span className="flex items-center justify-center gap-2">
-            <ClipboardPaste className="w-4 h-4" />
-            Plak meerdere woorden
-          </span>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="md"
+            className="flex-1"
+            onClick={() => setShowPaste(true)}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <ClipboardPaste className="w-4 h-4" />
+              Plakken
+            </span>
+          </Button>
+          <Button
+            variant="secondary"
+            size="md"
+            className="flex-1"
+            onClick={() => setShowScan(true)}
+          >
+            <span className="flex items-center justify-center gap-2">
+              <Camera className="w-4 h-4" />
+              Scannen
+            </span>
+          </Button>
+        </div>
 
         {words.length > 0 && (
           <div className="space-y-2">
@@ -244,6 +259,14 @@ export function ListDetail() {
         <PasteDialog
           listId={list.id}
           onClose={() => setShowPaste(false)}
+        />
+      )}
+
+      {showScan && (
+        <ScanDialog
+          listId={list.id}
+          sourceLanguage={list.sourceLanguage}
+          onClose={() => setShowScan(false)}
         />
       )}
 

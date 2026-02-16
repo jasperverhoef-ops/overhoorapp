@@ -189,7 +189,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     } else {
       // Round 1 or 2
       const newCorrect = new Set(active.answeredCorrectly);
-      let newWordQueue = [...active.wordQueue];
+      const newWordQueue = [...active.wordQueue];
 
       if (result === 'correct') {
         newCorrect.add(wordId);

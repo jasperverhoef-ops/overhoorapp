@@ -19,29 +19,33 @@ export function ChildSelector() {
     <>
       <div className="flex gap-4 justify-center flex-wrap">
         {children.map((child: Child) => (
-          <button
+          <div
             key={child.id}
-            onClick={() => selectChild(child.id)}
-            className={`relative flex flex-col items-center gap-2 p-6 rounded-2xl transition-all touch-manipulation ${
+            className={`relative flex flex-col items-center gap-2 p-6 rounded-2xl transition-all ${
               selectedChildId === child.id
                 ? 'bg-white shadow-lg ring-2 ring-blue-500 scale-105'
                 : 'bg-white/60 shadow-sm hover:shadow-md hover:scale-102'
             }`}
           >
             <button
-              onClick={(e) => { e.stopPropagation(); setEditChild(child); }}
+              onClick={() => setEditChild(child)}
               className="absolute top-2 right-2 p-1 rounded-lg hover:bg-gray-100 text-gray-400 touch-manipulation"
             >
               <Settings className="w-3.5 h-3.5" />
             </button>
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-inner"
-              style={{ backgroundColor: child.avatarColor }}
+            <button
+              onClick={() => selectChild(child.id)}
+              className="flex flex-col items-center gap-2 touch-manipulation"
             >
-              {child.name.charAt(0)}
-            </div>
-            <span className="text-base font-semibold text-gray-900">{child.name}</span>
-          </button>
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-inner"
+                style={{ backgroundColor: child.avatarColor }}
+              >
+                {child.name.charAt(0)}
+              </div>
+              <span className="text-base font-semibold text-gray-900">{child.name}</span>
+            </button>
+          </div>
         ))}
 
         {/* Add child button */}

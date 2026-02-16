@@ -19,8 +19,8 @@ function parseTextToWordPairs(text: string): WordPair[] {
     .map(line => line.trim())
     .filter(line => line.length > 0)
     .map(line => {
-      // Split on first separator: tab, =, –, -, :
-      const match = line.match(/^(.+?)[\t=\-–:](.+)$/);
+      // Split on first separator: tab, =, – (en-dash), — (em-dash), or spaced hyphen ( - )
+      const match = line.match(/^(.+?)(?:\t|=|–|—|\s-\s)(.+)$/);
       if (!match) return null;
       const source = match[1].trim();
       const dutch = match[2].trim();

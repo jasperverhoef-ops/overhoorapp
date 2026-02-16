@@ -16,6 +16,7 @@ export function Dashboard() {
   const selectedChildId = useAppStore((s) => s.selectedChildId);
   const navigate = useNavigate();
   const [shareToast, setShareToast] = useState(false);
+  const [now] = useState(() => Date.now());
 
   const child = useLiveQuery(
     () => (selectedChildId ? db.children.get(selectedChildId) : undefined),
@@ -69,7 +70,6 @@ export function Dashboard() {
   const badges = calculateBadges(sessions ?? [], lists ?? []);
 
   // Weekly practice overview (last 7 days)
-  const now = Date.now();
   const dayNames = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
   const weekData = Array.from({ length: 7 }).map((_, i) => {
     const date = new Date(now - (6 - i) * 86400000);
