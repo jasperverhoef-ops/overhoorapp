@@ -1,26 +1,26 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Trash2, Play, Camera, ClipboardPaste, Share2, Pencil, Check } from 'lucide-react';
+import { Trash2, Play, ClipboardPaste, Share2, Pencil, Check, Undo2 } from 'lucide-react';
 import { db } from '../../db';
 import { Header } from '../layout/Header';
 import { WordEditor } from './WordEditor';
-import { ScanDialog } from './ScanDialog';
 import { PasteDialog } from './PasteDialog';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Button } from '../ui/Button';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
+import type { Word } from '../../models/types';
 
 export function ListDetail() {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
-  const [showScan, setShowScan] = useState(false);
   const [showPaste, setShowPaste] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'list' } | { type: 'word'; wordId: string } | null>(null);
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [editSource, setEditSource] = useState('');
   const [editDutch, setEditDutch] = useState('');
   const [shared, setShared] = useState(false);
+  const [deletedWord, setDeletedWord] = useState<Word | null>(null);
 
   const list = useLiveQuery(() =>
     listId ? db.wordLists.get(listId) : undefined, [listId]
@@ -34,9 +34,21 @@ export function ListDetail() {
   }
 
   const deleteWord = async (wordId: string) => {
+    // Save word for undo before deleting
+    const word = words.find((w) => w.id === wordId);
+    if (word) {
+      setDeletedWord(word);
+      setTimeout(() => setDeletedWord((prev) => prev?.id === word.id ? null : prev), 5000);
+    }
     await db.words.delete(wordId);
     setConfirmDelete(null);
   };
+
+  const undoDelete = useCallback(async () => {
+    if (!deletedWord) return;
+    await db.words.add(deletedWord);
+    setDeletedWord(null);
+  }, [deletedWord]);
 
   const deleteList = async () => {
     if (!listId) return;
@@ -132,30 +144,17 @@ export function ListDetail() {
 
         <WordEditor listId={list.id} sourceLanguage={list.sourceLanguage} />
 
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="md"
-            className="flex-1"
-            onClick={() => setShowPaste(true)}
-          >
-            <span className="flex items-center justify-center gap-2">
-              <ClipboardPaste className="w-4 h-4" />
-              Plak lijst
-            </span>
-          </Button>
-          <Button
-            variant="secondary"
-            size="md"
-            className="flex-1"
-            onClick={() => setShowScan(true)}
-          >
-            <span className="flex items-center justify-center gap-2">
-              <Camera className="w-4 h-4" />
-              Scan foto
-            </span>
-          </Button>
-        </div>
+        <Button
+          variant="secondary"
+          size="md"
+          className="w-full"
+          onClick={() => setShowPaste(true)}
+        >
+          <span className="flex items-center justify-center gap-2">
+            <ClipboardPaste className="w-4 h-4" />
+            Plak meerdere woorden
+          </span>
+        </Button>
 
         {words.length > 0 && (
           <div className="space-y-2">
@@ -223,18 +222,28 @@ export function ListDetail() {
         )}
       </div>
 
+      {/* Undo toast */}
+      {deletedWord && (
+        <div className="fixed bottom-24 left-4 right-4 max-w-md mx-auto z-50">
+          <div className="flex items-center justify-between bg-gray-800 text-white rounded-xl px-4 py-3 shadow-lg">
+            <span className="text-sm">
+              "{deletedWord.sourceWord}" verwijderd
+            </span>
+            <button
+              onClick={undoDelete}
+              className="flex items-center gap-1.5 text-sm font-medium text-blue-300 hover:text-blue-200 ml-4"
+            >
+              <Undo2 className="w-4 h-4" />
+              Ongedaan maken
+            </button>
+          </div>
+        </div>
+      )}
+
       {showPaste && (
         <PasteDialog
           listId={list.id}
           onClose={() => setShowPaste(false)}
-        />
-      )}
-
-      {showScan && (
-        <ScanDialog
-          listId={list.id}
-          sourceLanguage={list.sourceLanguage}
-          onClose={() => setShowScan(false)}
         />
       )}
 

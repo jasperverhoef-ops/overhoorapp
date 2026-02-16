@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
-import { Clock, TrendingUp, ChevronRight } from 'lucide-react';
+import { Clock, TrendingUp, ChevronRight, Share2 } from 'lucide-react';
 import { db } from '../../db';
 import { useAppStore } from '../../stores/useAppStore';
 import { Header } from '../layout/Header';
@@ -14,6 +15,7 @@ import { calculateBadges } from '../../models/badges';
 export function Dashboard() {
   const selectedChildId = useAppStore((s) => s.selectedChildId);
   const navigate = useNavigate();
+  const [shareToast, setShareToast] = useState(false);
 
   const child = useLiveQuery(
     () => (selectedChildId ? db.children.get(selectedChildId) : undefined),
@@ -66,9 +68,95 @@ export function Dashboard() {
   // Calculate badges
   const badges = calculateBadges(sessions ?? [], lists ?? []);
 
+  // Weekly practice overview (last 7 days)
+  const now = Date.now();
+  const dayNames = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
+  const weekData = Array.from({ length: 7 }).map((_, i) => {
+    const date = new Date(now - (6 - i) * 86400000);
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const dayEnd = dayStart + 86400000;
+    const daySessions = (sessions ?? []).filter(
+      (s) => s.startedAt >= dayStart && s.startedAt < dayEnd
+    );
+    const totalMs = daySessions.reduce((sum, s) => sum + s.totalElapsedMs, 0);
+    return {
+      label: dayNames[date.getDay()],
+      minutes: Math.round(totalMs / 60000),
+      sessions: daySessions.length,
+      isToday: i === 6,
+    };
+  });
+  const weekTotalMinutes = weekData.reduce((sum, d) => sum + d.minutes, 0);
+  const weekMaxMinutes = Math.max(...weekData.map((d) => d.minutes), 1);
+
+  // Share results
+  const handleShareResults = async () => {
+    const allSessions = sessions ?? [];
+    const thisWeekSessions = allSessions.filter(
+      (s) => s.startedAt >= now - 7 * 86400000
+    );
+    const weekTime = thisWeekSessions.reduce((sum, s) => sum + s.totalElapsedMs, 0);
+
+    const lines = [
+      `TaalTrainer - ${child.name}`,
+      ``,
+      `Totaal: ${totalSessions} sessies, ${formatTime(totalTime)} oefentijd`,
+      `Gemiddelde score: ${avgScore}%`,
+      ``,
+      `Deze week: ${thisWeekSessions.length} sessies, ${Math.round(weekTime / 60000)} min`,
+    ];
+
+    // Add per-list info
+    if ((lists ?? []).length > 0) {
+      lines.push('', 'Per lijst:');
+      for (const list of lists ?? []) {
+        const ls = allSessions.filter((s) => s.listId === list.id);
+        if (ls.length > 0) {
+          const best = ls
+            .flatMap((s) => s.rounds.filter((r) => r.roundNumber === 1))
+            .reduce((b, r) => {
+              const pct = r.totalWords > 0 ? r.directCorrect / r.totalWords : 0;
+              return pct > b ? pct : b;
+            }, 0);
+          lines.push(`  ${list.name}: ${ls.length} sessies, beste ${Math.round(best * 100)}%`);
+        }
+      }
+    }
+
+    const text = lines.join('\n');
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `TaalTrainer - ${child.name}`, text });
+      } else {
+        await navigator.clipboard.writeText(text);
+        setShareToast(true);
+        setTimeout(() => setShareToast(false), 2500);
+      }
+    } catch {
+      // User cancelled
+    }
+  };
+
   return (
     <div className="min-h-full bg-gray-50">
-      <Header title={`${child.name} - Statistieken`} />
+      <Header
+        title={`${child.name} - Statistieken`}
+        right={totalSessions > 0 ? (
+          <button
+            onClick={handleShareResults}
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 touch-manipulation"
+            aria-label="Deel resultaten"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+        ) : undefined}
+      />
+
+      {shareToast && (
+        <div className="mx-4 mt-2 px-4 py-2 bg-green-50 text-green-700 text-sm rounded-xl text-center">
+          Resultaten gekopieerd naar klembord!
+        </div>
+      )}
 
       <div className="p-4 space-y-4">
         {totalSessions === 0 ? (
@@ -110,6 +198,42 @@ export function Dashboard() {
               </h3>
               <Card>
                 <BadgeDisplay badges={badges} />
+              </Card>
+            </div>
+
+            {/* Weekly overview */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider">
+                  Deze week
+                </h3>
+                <span className="text-sm text-gray-500">
+                  {weekTotalMinutes} min totaal
+                </span>
+              </div>
+              <Card>
+                <div className="flex items-end justify-between gap-1 h-20">
+                  {weekData.map((day, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <div className="w-full flex justify-center" style={{ height: 48 }}>
+                        <div
+                          className={`w-full max-w-[24px] rounded-t ${
+                            day.isToday ? 'bg-blue-500' : day.minutes > 0 ? 'bg-blue-300' : 'bg-gray-100'
+                          }`}
+                          style={{
+                            height: day.minutes > 0
+                              ? Math.max(8, (day.minutes / weekMaxMinutes) * 48)
+                              : 4,
+                            alignSelf: 'flex-end',
+                          }}
+                        />
+                      </div>
+                      <span className={`text-xs ${day.isToday ? 'font-bold text-blue-600' : 'text-gray-400'}`}>
+                        {day.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </Card>
             </div>
 
