@@ -30,6 +30,7 @@ export function QuizScreen() {
   const abandonSession = useSessionStore((s) => s.abandonSession);
   const timerStart = useTimerStore((s) => s.start);
   const timerResume = useTimerStore((s) => s.resume);
+  const timerIsRunning = useTimerStore((s) => s.isRunning);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
   const list = useLiveQuery(
@@ -47,7 +48,33 @@ export function QuizScreen() {
     [selectedChildId]
   );
 
-  // Initialize session when data is ready
+  // Prevent accidental tab close/refresh during active quiz
+  useEffect(() => {
+    if (!active || active.phase === 'session-complete') return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [active]);
+
+  // Resume timer if session was restored and is in an active phase
+  useEffect(() => {
+    if (active && !timerIsRunning && active.phase === 'word-display') {
+      timerResume();
+    }
+  }, [active, timerIsRunning, timerResume]);
+
+  // If we have a restored session but it's for a different list, abandon it
+  useEffect(() => {
+    if (active && listId && active.listId !== listId) {
+      abandonSession();
+    }
+  }, [active, listId, abandonSession]);
+
+  // Initialize session when data is ready (only if no restored session)
   useEffect(() => {
     if (list && words && words.length >= 2 && child && !active) {
       startSession(
@@ -197,7 +224,7 @@ export function QuizScreen() {
           {showQuitConfirm && (
             <ConfirmDialog
               title="Sessie stoppen?"
-              description="Je voortgang van deze sessie gaat verloren."
+              description="Je voortgang van deze sessie gaat verloren als je stopt."
               confirmLabel="Stoppen"
               onConfirm={handleQuit}
               onCancel={() => setShowQuitConfirm(false)}

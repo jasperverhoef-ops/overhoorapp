@@ -12,6 +12,52 @@ import { initializeMasteryQueue, pickNextWord, processAnswer, isRoundComplete } 
 import { db } from '../db';
 import { useTimerStore } from './useTimerStore';
 
+const SESSION_KEY = 'quiz-session';
+
+// Serialize ActiveSession for sessionStorage (Set → Array)
+function serializeSession(session: ActiveSession): string {
+  return JSON.stringify(session, (_key, value) => {
+    if (value instanceof Set) return { __type: 'Set', values: Array.from(value) };
+    return value;
+  });
+}
+
+// Deserialize ActiveSession from sessionStorage (Array → Set)
+function deserializeSession(json: string): ActiveSession | null {
+  try {
+    return JSON.parse(json, (_key, value) => {
+      if (value && typeof value === 'object' && value.__type === 'Set') {
+        return new Set(value.values);
+      }
+      return value;
+    });
+  } catch {
+    return null;
+  }
+}
+
+function loadSavedSession(): ActiveSession | null {
+  try {
+    const saved = sessionStorage.getItem(SESSION_KEY);
+    if (!saved) return null;
+    return deserializeSession(saved);
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(session: ActiveSession | null): void {
+  try {
+    if (session) {
+      sessionStorage.setItem(SESSION_KEY, serializeSession(session));
+    } else {
+      sessionStorage.removeItem(SESSION_KEY);
+    }
+  } catch {
+    // Storage full or unavailable
+  }
+}
+
 interface SessionState {
   active: ActiveSession | null;
 
@@ -32,7 +78,7 @@ interface SessionState {
 }
 
 export const useSessionStore = create<SessionState>()((set, get) => ({
-  active: null,
+  active: loadSavedSession(),
 
   startSession: (childId, childName, listId, listName, sourceLanguage, words) => {
     const queue = prepareRound1(words);
@@ -424,3 +470,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     set({ active: null });
   },
 }));
+
+// Auto-save session state to sessionStorage on every change
+useSessionStore.subscribe((state) => {
+  saveSession(state.active);
+});

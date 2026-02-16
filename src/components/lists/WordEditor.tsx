@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Button } from '../ui/Button';
 import { db } from '../../db';
 import type { Language } from '../../models/types';
@@ -14,9 +15,28 @@ interface WordEditorProps {
 export function WordEditor({ listId, sourceLanguage, onClose }: WordEditorProps) {
   const [sourceWord, setSourceWord] = useState('');
   const [dutchWord, setDutchWord] = useState('');
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+
+  const existingWords = useLiveQuery(
+    () => db.words.where('listId').equals(listId).toArray(),
+    [listId]
+  );
 
   const handleAdd = async () => {
     if (!sourceWord.trim() || !dutchWord.trim()) return;
+
+    // Check for duplicate
+    const duplicate = (existingWords ?? []).find(
+      (w) =>
+        w.sourceWord.toLowerCase().trim() === sourceWord.toLowerCase().trim() &&
+        w.dutchWord.toLowerCase().trim() === dutchWord.toLowerCase().trim()
+    );
+
+    if (duplicate) {
+      setDuplicateWarning(`"${sourceWord.trim()}" staat al in de lijst`);
+      setTimeout(() => setDuplicateWarning(null), 3000);
+      return;
+    }
 
     await db.words.add({
       id: crypto.randomUUID(),
@@ -27,6 +47,7 @@ export function WordEditor({ listId, sourceLanguage, onClose }: WordEditorProps)
 
     setSourceWord('');
     setDutchWord('');
+    setDuplicateWarning(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -46,6 +67,11 @@ export function WordEditor({ listId, sourceLanguage, onClose }: WordEditorProps)
         )}
       </div>
       <div className="space-y-3">
+        {duplicateWarning && (
+          <div className="px-3 py-2 bg-amber-50 text-amber-700 text-sm rounded-xl border border-amber-200">
+            {duplicateWarning}
+          </div>
+        )}
         <input
           type="text"
           value={sourceWord}

@@ -1,5 +1,20 @@
 import { create } from 'zustand';
 
+const TIMER_KEY = 'quiz-timer';
+
+function loadSavedTimer(): number {
+  try {
+    const saved = sessionStorage.getItem(TIMER_KEY);
+    if (!saved) return 0;
+    const data = JSON.parse(saved);
+    return data.accumulatedMs ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+const restoredMs = loadSavedTimer();
+
 interface TimerState {
   isRunning: boolean;
   elapsedMs: number;
@@ -16,9 +31,9 @@ interface TimerState {
 
 export const useTimerStore = create<TimerState>()((set, get) => ({
   isRunning: false,
-  elapsedMs: 0,
+  elapsedMs: restoredMs,
   startTimestamp: null,
-  accumulatedMs: 0,
+  accumulatedMs: restoredMs,
 
   start: () =>
     set({
@@ -46,13 +61,15 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
       startTimestamp: Date.now(),
     }),
 
-  reset: () =>
+  reset: () => {
+    sessionStorage.removeItem(TIMER_KEY);
     set({
       isRunning: false,
       elapsedMs: 0,
       startTimestamp: null,
       accumulatedMs: 0,
-    }),
+    });
+  },
 
   tick: () => {
     const state = get();
@@ -68,3 +85,14 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
     return state.accumulatedMs + (Date.now() - state.startTimestamp);
   },
 }));
+
+// Persist accumulated time when timer pauses
+useTimerStore.subscribe((state) => {
+  if (!state.isRunning && state.accumulatedMs > 0) {
+    try {
+      sessionStorage.setItem(TIMER_KEY, JSON.stringify({ accumulatedMs: state.accumulatedMs }));
+    } catch {
+      // Storage unavailable
+    }
+  }
+});

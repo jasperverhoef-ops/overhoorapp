@@ -44,6 +44,7 @@ export function WordCard({
 }: WordCardProps) {
   const [flash, setFlash] = useState<'good' | 'wrong' | null>(null);
   const [listening, setListening] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const colors = roundColors[round];
   const supportsSpeech = isSpeechSupported();
 
@@ -74,9 +75,10 @@ export function WordCard({
     }
   }, [flash]);
 
-  // Reset flash when word changes
+  // Reset flash and speech error when word changes
   useEffect(() => {
     setFlash(null);
+    setSpeechError(null);
   }, [word.word.id]);
 
   const handleSpeech = useCallback(async () => {
@@ -99,9 +101,9 @@ export function WordCard({
           handleWrong();
         }
       }
-    } catch (err) {
-      // User denied mic or error occurred, just silently fail
-      console.log('Speech recognition error:', err);
+    } catch {
+      setSpeechError('Niet verstaan. Probeer opnieuw.');
+      setTimeout(() => setSpeechError(null), 3000);
     } finally {
       setListening(false);
     }
@@ -203,6 +205,11 @@ export function WordCard({
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
               <span className="text-blue-700 font-medium">Luisteren...</span>
             </div>
+          </div>
+        )}
+        {speechError && (
+          <div className="py-2 px-4 bg-amber-50 rounded-xl border border-amber-300 text-center">
+            <span className="text-amber-700 text-sm font-medium">{speechError}</span>
           </div>
         )}
         <div className="flex gap-3">
