@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db';
@@ -6,17 +6,20 @@ import { useSessionStore } from '../../stores/useSessionStore';
 import { useTimerStore } from '../../stores/useTimerStore';
 import { useAppStore } from '../../stores/useAppStore';
 import { getMasteryProgress } from '../../lib/round3Queue';
+import { playCorrectSound, playWrongSound } from '../../lib/sounds';
 import { RoundIntro } from './RoundIntro';
 import { WordCard } from './WordCard';
 import { ShowingAnswer } from './ShowingAnswer';
 import { RoundSummary } from './RoundSummary';
 import { BetweenRounds } from './BetweenRounds';
 import { SessionComplete } from './SessionComplete';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 export function QuizScreen() {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
   const selectedChildId = useAppStore((s) => s.selectedChildId);
+  const soundEnabled = useAppStore((s) => s.soundEnabled);
   const active = useSessionStore((s) => s.active);
   const startSession = useSessionStore((s) => s.startSession);
   const answerWord = useSessionStore((s) => s.answerWord);
@@ -24,8 +27,10 @@ export function QuizScreen() {
   const dismissAnswer = useSessionStore((s) => s.dismissAnswer);
   const startNextRound = useSessionStore((s) => s.startNextRound);
   const completeSession = useSessionStore((s) => s.completeSession);
+  const abandonSession = useSessionStore((s) => s.abandonSession);
   const timerStart = useTimerStore((s) => s.start);
   const timerResume = useTimerStore((s) => s.resume);
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
   const list = useLiveQuery(
     () => (listId ? db.wordLists.get(listId) : undefined),
@@ -69,17 +74,14 @@ export function QuizScreen() {
   }, [active, timerStart, timerResume]);
 
   const handleGood = useCallback(() => {
-    if (active?.hintUsed) {
-      // Hint was used, treat as wrong
-      answerWord('wrong');
-    } else {
-      answerWord('correct');
-    }
-  }, [active?.hintUsed, answerWord]);
+    if (soundEnabled) playCorrectSound();
+    answerWord('correct');
+  }, [soundEnabled, answerWord]);
 
   const handleWrong = useCallback(() => {
+    if (soundEnabled) playWrongSound();
     answerWord('wrong');
-  }, [answerWord]);
+  }, [soundEnabled, answerWord]);
 
   const handleHint = useCallback(() => {
     showHint();
@@ -100,6 +102,11 @@ export function QuizScreen() {
   const handleFinish = useCallback(async () => {
     await completeSession();
   }, [completeSession]);
+
+  const handleQuit = useCallback(() => {
+    abandonSession();
+    navigate('/play');
+  }, [abandonSession, navigate]);
 
   // Loading state
   if (!list || !words || !child) {
@@ -172,19 +179,31 @@ export function QuizScreen() {
           : null;
 
       return (
-        <WordCard
-          round={active.currentRound}
-          word={active.currentWord}
-          sourceLanguage={active.sourceLanguage}
-          progress={progress}
-          masteryInfo={masteryInfo}
-          childName={active.childName}
-          listName={active.listName}
-          hintUsed={active.hintUsed}
-          onGood={handleGood}
-          onWrong={handleWrong}
-          onHint={handleHint}
-        />
+        <>
+          <WordCard
+            round={active.currentRound}
+            word={active.currentWord}
+            sourceLanguage={active.sourceLanguage}
+            progress={progress}
+            masteryInfo={masteryInfo}
+            childName={active.childName}
+            listName={active.listName}
+            hintUsed={active.hintUsed}
+            onGood={handleGood}
+            onWrong={handleWrong}
+            onHint={handleHint}
+            onQuit={() => setShowQuitConfirm(true)}
+          />
+          {showQuitConfirm && (
+            <ConfirmDialog
+              title="Sessie stoppen?"
+              description="Je voortgang van deze sessie gaat verloren."
+              confirmLabel="Stoppen"
+              onConfirm={handleQuit}
+              onCancel={() => setShowQuitConfirm(false)}
+            />
+          )}
+        </>
       );
     }
 

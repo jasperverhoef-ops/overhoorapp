@@ -8,6 +8,8 @@ import { Card } from '../ui/Card';
 import { EmptyState } from '../ui/EmptyState';
 import { formatTime } from '../../lib/formatTime';
 import { LANGUAGE_FLAGS } from '../../models/types';
+import { BadgeDisplay } from './BadgeDisplay';
+import { calculateBadges } from '../../models/badges';
 
 export function Dashboard() {
   const selectedChildId = useAppStore((s) => s.selectedChildId);
@@ -61,6 +63,9 @@ export function Dashboard() {
   // Find list names for sessions
   const listMap = new Map((lists ?? []).map((l) => [l.id, l]));
 
+  // Calculate badges
+  const badges = calculateBadges(sessions ?? [], lists ?? []);
+
   return (
     <div className="min-h-full bg-gray-50">
       <Header title={`${child.name} - Statistieken`} />
@@ -95,6 +100,16 @@ export function Dashboard() {
               <Card className="text-center">
                 <p className="text-2xl font-bold text-gray-900">{avgScore}%</p>
                 <p className="text-xs text-gray-500">Gem. score</p>
+              </Card>
+            </div>
+
+            {/* Badges */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                Badges
+              </h3>
+              <Card>
+                <BadgeDisplay badges={badges} />
               </Card>
             </div>
 

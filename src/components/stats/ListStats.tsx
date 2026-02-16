@@ -36,6 +36,16 @@ export function ListStats() {
 
   const childMap = new Map(children.map((c) => [c.id, c]));
 
+  // Prepare data for progress chart (Round 1 scores over time)
+  const chartData = sessions
+    .slice()
+    .reverse()
+    .map((s, index) => {
+      const round1 = s.rounds.find((r) => r.roundNumber === 1);
+      const pct = round1 ? (round1.directCorrect / round1.totalWords) * 100 : 0;
+      return { sessionNumber: index + 1, percentage: pct };
+    });
+
   return (
     <div className="min-h-full bg-gray-50">
       <Header title={list.name} />
@@ -53,7 +63,93 @@ export function ListStats() {
             </p>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <>
+            {/* Progress Chart */}
+            {chartData.length >= 2 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                  Voortgang (Ronde 1)
+                </h3>
+                <Card>
+                  <svg viewBox="0 0 300 120" className="w-full h-auto">
+                    {/* Y-axis labels */}
+                    {[0, 25, 50, 75, 100].map((val) => (
+                      <g key={val}>
+                        <text
+                          x="20"
+                          y={100 - val * 0.8 + 5}
+                          fontSize="8"
+                          fill="#9ca3af"
+                          textAnchor="end"
+                        >
+                          {val}%
+                        </text>
+                        <line
+                          x1="25"
+                          y1={100 - val * 0.8}
+                          x2="295"
+                          y2={100 - val * 0.8}
+                          stroke="#e5e7eb"
+                          strokeWidth="0.5"
+                        />
+                      </g>
+                    ))}
+
+                    {/* Line chart */}
+                    <polyline
+                      points={chartData
+                        .map((d, i) => {
+                          const x = 30 + (i * 260) / (chartData.length - 1);
+                          const y = 100 - d.percentage * 0.8;
+                          return `${x},${y}`;
+                        })
+                        .join(' ')}
+                      fill="none"
+                      stroke="#3b82f6"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+
+                    {/* Data points */}
+                    {chartData.map((d, i) => {
+                      const x = 30 + (i * 260) / (chartData.length - 1);
+                      const y = 100 - d.percentage * 0.8;
+                      return (
+                        <circle
+                          key={i}
+                          cx={x}
+                          cy={y}
+                          r="3"
+                          fill="#3b82f6"
+                          stroke="white"
+                          strokeWidth="1.5"
+                        />
+                      );
+                    })}
+
+                    {/* X-axis labels */}
+                    {chartData.map((d, i) => {
+                      const x = 30 + (i * 260) / (chartData.length - 1);
+                      return (
+                        <text
+                          key={i}
+                          x={x}
+                          y="115"
+                          fontSize="8"
+                          fill="#9ca3af"
+                          textAnchor="middle"
+                        >
+                          {d.sessionNumber}
+                        </text>
+                      );
+                    })}
+                  </svg>
+                </Card>
+              </div>
+            )}
+
+            <div className="space-y-3">
             <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider">
               Sessie geschiedenis
             </h3>
@@ -129,7 +225,8 @@ export function ListStats() {
                 </Card>
               );
             })}
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>

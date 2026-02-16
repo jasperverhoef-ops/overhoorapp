@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Trash2, Play, Camera, ClipboardPaste } from 'lucide-react';
+import { Trash2, Play, Camera, ClipboardPaste, Share2, Pencil, Check } from 'lucide-react';
 import { db } from '../../db';
 import { Header } from '../layout/Header';
 import { WordEditor } from './WordEditor';
 import { ScanDialog } from './ScanDialog';
 import { PasteDialog } from './PasteDialog';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Button } from '../ui/Button';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 
@@ -15,6 +16,11 @@ export function ListDetail() {
   const navigate = useNavigate();
   const [showScan, setShowScan] = useState(false);
   const [showPaste, setShowPaste] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'list' } | { type: 'word'; wordId: string } | null>(null);
+  const [editingWordId, setEditingWordId] = useState<string | null>(null);
+  const [editSource, setEditSource] = useState('');
+  const [editDutch, setEditDutch] = useState('');
+  const [shared, setShared] = useState(false);
 
   const list = useLiveQuery(() =>
     listId ? db.wordLists.get(listId) : undefined, [listId]
@@ -29,6 +35,7 @@ export function ListDetail() {
 
   const deleteWord = async (wordId: string) => {
     await db.words.delete(wordId);
+    setConfirmDelete(null);
   };
 
   const deleteList = async () => {
@@ -38,20 +45,68 @@ export function ListDetail() {
     navigate('/lists');
   };
 
+  const startEdit = (wordId: string, sourceWord: string, dutchWord: string) => {
+    setEditingWordId(wordId);
+    setEditSource(sourceWord);
+    setEditDutch(dutchWord);
+  };
+
+  const saveEdit = async () => {
+    if (!editingWordId || !editSource.trim() || !editDutch.trim()) return;
+    await db.words.update(editingWordId, {
+      sourceWord: editSource.trim(),
+      dutchWord: editDutch.trim(),
+    });
+    setEditingWordId(null);
+  };
+
+  const handleExport = async () => {
+    const text = words.map(w => `${w.sourceWord} = ${w.dutchWord}`).join('\n');
+    const shareData = { title: list.name, text };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(text);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }
+    } catch {
+      // User cancelled share
+    }
+  };
+
   return (
     <div className="min-h-full bg-gray-50">
       <Header
         title={list.name}
         right={
-          <button
-            onClick={deleteList}
-            className="p-2 rounded-lg hover:bg-red-50 text-red-500 touch-manipulation"
-            aria-label="Verwijder lijst"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {words.length > 0 && (
+              <button
+                onClick={handleExport}
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 touch-manipulation"
+                aria-label="Deel lijst"
+              >
+                <Share2 className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={() => setConfirmDelete({ type: 'list' })}
+              className="p-2 rounded-lg hover:bg-red-50 text-red-500 touch-manipulation"
+              aria-label="Verwijder lijst"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
         }
       />
+
+      {shared && (
+        <div className="mx-4 mt-2 px-4 py-2 bg-green-50 text-green-700 text-sm rounded-xl text-center">
+          Gekopieerd naar klembord!
+        </div>
+      )}
 
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
@@ -112,17 +167,56 @@ export function ListDetail() {
                 key={word.id}
                 className="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-gray-100"
               >
-                <div className="flex-1 min-w-0">
-                  <span className="font-medium text-gray-900">{word.sourceWord}</span>
-                  <span className="text-gray-400 mx-2">=</span>
-                  <span className="text-gray-600">{word.dutchWord}</span>
-                </div>
-                <button
-                  onClick={() => deleteWord(word.id)}
-                  className="ml-2 p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 touch-manipulation"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {editingWordId === word.id ? (
+                  <div className="flex-1 flex items-center gap-2 min-w-0">
+                    <input
+                      type="text"
+                      value={editSource}
+                      onChange={e => setEditSource(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveEdit()}
+                      className="flex-1 min-w-0 px-2 py-1 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                    <input
+                      type="text"
+                      value={editDutch}
+                      onChange={e => setEditDutch(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveEdit()}
+                      className="flex-1 min-w-0 px-2 py-1 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={saveEdit}
+                      className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 touch-manipulation"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => startEdit(word.id, word.sourceWord, word.dutchWord)}
+                    >
+                      <span className="font-medium text-gray-900">{word.sourceWord}</span>
+                      <span className="text-gray-400 mx-2">=</span>
+                      <span className="text-gray-600">{word.dutchWord}</span>
+                    </div>
+                    <div className="flex items-center gap-0.5 ml-2">
+                      <button
+                        onClick={() => startEdit(word.id, word.sourceWord, word.dutchWord)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 touch-manipulation"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete({ type: 'word', wordId: word.id })}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 touch-manipulation"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -141,6 +235,24 @@ export function ListDetail() {
           listId={list.id}
           sourceLanguage={list.sourceLanguage}
           onClose={() => setShowScan(false)}
+        />
+      )}
+
+      {confirmDelete?.type === 'list' && (
+        <ConfirmDialog
+          title="Lijst verwijderen?"
+          description={`"${list.name}" en alle ${words.length} woorden worden permanent verwijderd.`}
+          onConfirm={deleteList}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
+      {confirmDelete?.type === 'word' && (
+        <ConfirmDialog
+          title="Woord verwijderen?"
+          description="Dit woord wordt permanent verwijderd."
+          onConfirm={() => deleteWord(confirmDelete.wordId)}
+          onCancel={() => setConfirmDelete(null)}
         />
       )}
     </div>

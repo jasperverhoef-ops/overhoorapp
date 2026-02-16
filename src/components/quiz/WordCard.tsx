@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Check, X, Lightbulb } from 'lucide-react';
+import { Check, X, Lightbulb, Square, Mic } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { TimerDisplay } from './TimerDisplay';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
+import { isSpeechSupported, listenForAnswer, fuzzyMatch } from '../../lib/speechRecognition';
 import type { RoundWord, Language, MasteryItem } from '../../models/types';
 
 interface WordCardProps {
@@ -18,6 +19,7 @@ interface WordCardProps {
   onGood: () => void;
   onWrong: () => void;
   onHint: () => void;
+  onQuit: () => void;
 }
 
 const roundColors = {
@@ -38,9 +40,12 @@ export function WordCard({
   onGood,
   onWrong,
   onHint,
+  onQuit,
 }: WordCardProps) {
   const [flash, setFlash] = useState<'good' | 'wrong' | null>(null);
+  const [listening, setListening] = useState(false);
   const colors = roundColors[round];
+  const supportsSpeech = isSpeechSupported();
 
   // Determine what to show
   const isSourceToDutch = word.direction === 'source-to-dutch';
@@ -74,11 +79,39 @@ export function WordCard({
     setFlash(null);
   }, [word.word.id]);
 
+  const handleSpeech = useCallback(async () => {
+    if (!supportsSpeech || listening) return;
+
+    setListening(true);
+    try {
+      // Determine the language to listen for
+      const isDutchAnswer = isSourceToDutch;
+      const listenLang = isDutchAnswer ? 'other' : sourceLanguage;
+
+      const transcript = await listenForAnswer(listenLang, isDutchAnswer);
+
+      if (transcript) {
+        // Check if speech matches the correct answer
+        const isMatch = fuzzyMatch(transcript, correctAnswer);
+        if (isMatch) {
+          handleGood();
+        } else {
+          handleWrong();
+        }
+      }
+    } catch (err) {
+      // User denied mic or error occurred, just silently fail
+      console.log('Speech recognition error:', err);
+    } finally {
+      setListening(false);
+    }
+  }, [supportsSpeech, listening, isSourceToDutch, sourceLanguage, correctAnswer, handleGood, handleWrong]);
+
   return (
     <div className={`min-h-full flex flex-col bg-white ${flash === 'good' ? 'flash-good' : flash === 'wrong' ? 'flash-wrong' : ''}`}>
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <div>
+        <div className="flex-1">
           <p className="text-sm font-semibold text-gray-900">{childName} - {listName}</p>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors.badge}`}>
@@ -87,7 +120,16 @@ export function WordCard({
             <span className="text-xs text-gray-500">{directionLabel}</span>
           </div>
         </div>
-        <TimerDisplay />
+        <div className="flex items-center gap-2">
+          <TimerDisplay />
+          <button
+            onClick={onQuit}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Stop quiz"
+          >
+            <Square className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Progress */}
@@ -155,12 +197,21 @@ export function WordCard({
 
       {/* Action buttons */}
       <div className="px-4 pb-6 space-y-3 safe-area-bottom">
+        {listening && (
+          <div className="py-3 px-4 bg-blue-50 rounded-xl border-2 border-blue-400 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+              <span className="text-blue-700 font-medium">Luisteren...</span>
+            </div>
+          </div>
+        )}
         <div className="flex gap-3">
           <Button
             variant="good"
             size="xl"
             className="flex-1 flex items-center justify-center gap-2"
             onClick={handleGood}
+            disabled={listening}
           >
             <Check className="w-6 h-6" />
             GOED
@@ -170,22 +221,40 @@ export function WordCard({
             size="xl"
             className="flex-1 flex items-center justify-center gap-2"
             onClick={handleWrong}
+            disabled={listening}
           >
             <X className="w-6 h-6" />
             FOUT
           </Button>
         </div>
-        {!hintUsed && (
-          <Button
-            variant="hint"
-            size="md"
-            className="w-full flex items-center justify-center gap-2"
-            onClick={onHint}
-          >
-            <Lightbulb className="w-4 h-4" />
-            Hint
-          </Button>
-        )}
+        <div className="flex gap-3">
+          {supportsSpeech && !hintUsed && (
+            <Button
+              variant="secondary"
+              size="md"
+              className="flex-1 flex items-center justify-center gap-2"
+              onClick={handleSpeech}
+              disabled={listening}
+            >
+              <Mic className="w-4 h-4" />
+              Spreek
+            </Button>
+          )}
+          {!hintUsed && (
+            <Button
+              variant="hint"
+              size="md"
+              className={supportsSpeech ? 'flex-1' : 'w-full'}
+              onClick={onHint}
+              disabled={listening}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Lightbulb className="w-4 h-4" />
+                Hint
+              </div>
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
