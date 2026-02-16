@@ -4,6 +4,8 @@ import { HomePage } from './pages/HomePage';
 import { ListsPage } from './pages/ListsPage';
 import { QuizPage } from './pages/QuizPage';
 import { StatsPage } from './pages/StatsPage';
+import { ModeSelectPage } from './pages/ModeSelectPage';
+import { SelfPlaySelectPage } from './pages/SelfPlaySelectPage';
 import { ListDetail } from './components/lists/ListDetail';
 import { QuizScreen } from './components/quiz/QuizScreen';
 import { ListStats } from './components/stats/ListStats';
@@ -33,11 +35,55 @@ export function App() {
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/stats/:listId" element={<ListStats />} />
         </Route>
+        {/* Mode selection: self vs parent */}
+        <Route
+          path="/play/:listId/mode"
+          element={
+            <ProtectedRoute>
+              <ModeSelectPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Self-play type selection: quick vs free */}
+        <Route
+          path="/play/:listId/self"
+          element={
+            <ProtectedRoute>
+              <SelfPlaySelectPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Quiz screens with mode parameter */}
+        <Route
+          path="/play/:listId/self/quick"
+          element={
+            <ProtectedRoute>
+              <QuizScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/play/:listId/self/free"
+          element={
+            <ProtectedRoute>
+              <QuizScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/play/:listId/parent"
+          element={
+            <ProtectedRoute>
+              <QuizScreen />
+            </ProtectedRoute>
+          }
+        />
+        {/* Legacy route: redirect to mode select */}
         <Route
           path="/play/:listId"
           element={
             <ProtectedRoute>
-              <QuizScreen />
+              <ModeSelectPage />
             </ProtectedRoute>
           }
         />

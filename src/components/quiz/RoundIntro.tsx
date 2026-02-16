@@ -1,12 +1,13 @@
 import { Button } from '../ui/Button';
 import { LANGUAGE_LABELS } from '../../models/types';
-import type { Language } from '../../models/types';
+import type { Language, TrainingMode } from '../../models/types';
 
 interface RoundIntroProps {
   round: 1 | 2 | 3;
   sourceLanguage: Language;
   totalWords: number;
   difficultWordCount?: number;
+  mode?: TrainingMode;
   onStart: () => void;
 }
 
@@ -22,7 +23,7 @@ const roundBadges = {
   3: 'bg-red-500',
 };
 
-export function RoundIntro({ round, sourceLanguage, totalWords, difficultWordCount, onStart }: RoundIntroProps) {
+export function RoundIntro({ round, sourceLanguage, totalWords, difficultWordCount, mode, onStart }: RoundIntroProps) {
   const langLabel = LANGUAGE_LABELS[sourceLanguage];
 
   const descriptions = {
@@ -31,9 +32,14 @@ export function RoundIntro({ round, sourceLanguage, totalWords, difficultWordCou
     3: 'Mixed: willekeurige richting',
   };
 
+  const isSelf = mode === 'self';
   const subtitles = {
-    1: 'Lees het woord in de vreemde taal voor. Het kind zegt de Nederlandse vertaling.',
-    2: 'Lees het Nederlandse woord voor. Het kind zegt het woord in de vreemde taal.',
+    1: isSelf
+      ? `Kies de juiste Nederlandse vertaling voor elk ${langLabel} woord.`
+      : 'Lees het woord in de vreemde taal voor. Het kind zegt de Nederlandse vertaling.',
+    2: isSelf
+      ? `Kies het juiste ${langLabel} woord voor elke Nederlandse vertaling.`
+      : 'Lees het Nederlandse woord voor. Het kind zegt het woord in de vreemde taal.',
     3: `${difficultWordCount} moeilijke woorden. Elk woord moet 2x achter elkaar goed.`,
   };
 

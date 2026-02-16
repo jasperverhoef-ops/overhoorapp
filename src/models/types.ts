@@ -2,6 +2,10 @@ export type Language = 'en' | 'fr' | 'de' | 'es' | 'la' | 'el' | 'other';
 export type AnswerResult = 'correct' | 'wrong';
 export type SessionStatus = 'in-progress' | 'completed' | 'abandoned';
 export type Direction = 'source-to-dutch' | 'dutch-to-source';
+export type TrainingMode = 'self' | 'parent';
+export type SelfPlayType = 'quick' | 'free';
+export type GameType = 'multiple-choice' | 'typing' | 'drag';
+export type HintLevel = 0 | 1 | 2 | 3;
 
 export interface Child {
   id: string;
@@ -35,6 +39,7 @@ export interface Session {
   completedAt?: number;
   totalElapsedMs: number;
   rounds: RoundResult[];
+  mode?: TrainingMode;
 }
 
 export interface RoundResult {
@@ -68,6 +73,12 @@ export interface MasteryItem {
   totalAttempts: number;
 }
 
+// Multiple choice option for self-training mode
+export interface ChoiceOption {
+  text: string;
+  isCorrect: boolean;
+}
+
 export interface ActiveSession {
   sessionId: string;
   listId: string;
@@ -76,6 +87,8 @@ export interface ActiveSession {
   listName: string;
   sourceLanguage: Language;
   allWords: Word[];
+  mode: TrainingMode;
+  gameType?: GameType;
 
   phase: QuizPhase;
   currentRound: 1 | 2 | 3;
@@ -83,6 +96,12 @@ export interface ActiveSession {
   // Current word
   currentWord: RoundWord | null;
   showingCorrectAnswer: boolean;
+
+  // Multiple choice options (self mode)
+  currentChoices: ChoiceOption[];
+
+  // Progressive hint level (0 = no hint used)
+  hintLevel: HintLevel;
 
   // Round 1 & 2 queue
   wordQueue: RoundWord[];

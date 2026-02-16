@@ -6,9 +6,13 @@ import type {
   RoundResult,
   WordAnswer,
   Language,
+  TrainingMode,
+  GameType,
+  HintLevel,
 } from '../models/types';
 import { prepareRound1, prepareRound2, getDifficultWords, countDirectCorrect } from '../lib/roundEngine';
 import { initializeMasteryQueue, pickNextWord, processAnswer, isRoundComplete } from '../lib/round3Queue';
+import { generateChoices } from '../lib/multipleChoice';
 import { db } from '../db';
 import { useTimerStore } from './useTimerStore';
 
@@ -67,22 +71,42 @@ interface SessionState {
     listId: string,
     listName: string,
     sourceLanguage: Language,
-    words: Word[]
+    words: Word[],
+    mode: TrainingMode,
+    gameType?: GameType
   ) => void;
   answerWord: (result: AnswerResult) => void;
   showHint: () => void;
+  advanceHint: () => void;
   dismissAnswer: () => void;
   startNextRound: () => void;
   completeSession: () => Promise<void>;
   abandonSession: () => void;
 }
 
+function buildChoicesForWord(active: ActiveSession, wordIndex: number): import('../models/types').ChoiceOption[] {
+  if (active.mode !== 'self') return [];
+  const roundWord = active.wordQueue[wordIndex];
+  if (!roundWord) return [];
+  return generateChoices(roundWord.word, active.allWords, roundWord.direction);
+}
+
+function buildChoicesForMastery(active: ActiveSession, word: Word, direction: import('../models/types').Direction): import('../models/types').ChoiceOption[] {
+  if (active.mode !== 'self') return [];
+  return generateChoices(word, active.allWords, direction);
+}
+
 export const useSessionStore = create<SessionState>()((set, get) => ({
   active: loadSavedSession(),
 
-  startSession: (childId, childName, listId, listName, sourceLanguage, words) => {
+  startSession: (childId, childName, listId, listName, sourceLanguage, words, mode, gameType) => {
     const queue = prepareRound1(words);
     const firstWord = queue[0] ?? null;
+    const isSelf = mode === 'self';
+
+    const initialChoices = isSelf && firstWord
+      ? generateChoices(firstWord.word, words, firstWord.direction)
+      : [];
 
     set({
       active: {
@@ -93,10 +117,14 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         listName,
         sourceLanguage,
         allWords: words,
+        mode,
+        gameType: isSelf ? (gameType ?? 'multiple-choice') : undefined,
         phase: 'round-intro',
         currentRound: 1,
         currentWord: firstWord,
         showingCorrectAnswer: false,
+        currentChoices: initialChoices,
+        hintLevel: 0,
         wordQueue: queue,
         answeredCorrectly: new Set(),
         currentWordIndex: 0,
@@ -145,6 +173,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             masteryQueue: newQueue,
             showingCorrectAnswer: true,
             hintUsed: false,
+            hintLevel: 0,
             phase: 'showing-answer',
           },
         });
@@ -168,11 +197,13 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             phase: 'session-complete',
             currentWord: null,
             lastWordId: wordId,
+            currentChoices: [],
           },
         });
       } else {
         // Pick next word
         const next = pickNextWord(newQueue, wordId);
+        const nextChoices = next ? buildChoicesForMastery(active, next.item.word, next.direction) : [];
         set({
           active: {
             ...active,
@@ -182,6 +213,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             lastWordId: wordId,
             showingCorrectAnswer: false,
             hintUsed: false,
+            hintLevel: 0,
+            currentChoices: nextChoices,
             phase: 'word-display',
           },
         });
@@ -210,6 +243,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             wordQueue: newWordQueue,
             showingCorrectAnswer: true,
             hintUsed: false,
+            hintLevel: 0,
             phase: 'showing-answer',
           },
         });
@@ -243,6 +277,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
                 roundResults: allRoundResults,
                 phase: 'session-complete',
                 currentWord: null,
+                currentChoices: [],
               },
             });
           } else {
@@ -257,6 +292,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
                 masteryQueue,
                 phase: 'between-rounds',
                 currentWord: null,
+                currentChoices: [],
               },
             });
           }
@@ -270,11 +306,13 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
               roundResults: [...active.roundResults, roundResult],
               phase: 'round-summary',
               currentWord: null,
+              currentChoices: [],
             },
           });
         }
       } else {
         // Next word in queue
+        const nextChoices = buildChoicesForWord({ ...active, wordQueue: newWordQueue }, nextIndex);
         set({
           active: {
             ...active,
@@ -285,6 +323,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             currentWord: newWordQueue[nextIndex],
             showingCorrectAnswer: false,
             hintUsed: false,
+            hintLevel: 0,
+            currentChoices: nextChoices,
             phase: 'word-display',
           },
         });
@@ -298,6 +338,19 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     set({
       active: {
         ...active,
+        hintUsed: true,
+      },
+    });
+  },
+
+  advanceHint: () => {
+    const { active } = get();
+    if (!active) return;
+    const newLevel = Math.min(active.hintLevel + 1, 3) as HintLevel;
+    set({
+      active: {
+        ...active,
+        hintLevel: newLevel,
         hintUsed: true,
       },
     });
@@ -317,10 +370,12 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             ...active,
             phase: 'session-complete',
             currentWord: null,
+            currentChoices: [],
           },
         });
         return;
       }
+      const nextChoices = buildChoicesForMastery(active, next.item.word, next.direction);
       set({
         active: {
           ...active,
@@ -328,6 +383,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           lastWordId: active.currentWord?.word.id ?? null,
           showingCorrectAnswer: false,
           hintUsed: false,
+          hintLevel: 0,
+          currentChoices: nextChoices,
           phase: 'word-display',
         },
       });
@@ -361,6 +418,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
                 phase: 'session-complete',
                 currentWord: null,
                 showingCorrectAnswer: false,
+                currentChoices: [],
               },
             });
           } else {
@@ -373,6 +431,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
                 phase: 'between-rounds',
                 currentWord: null,
                 showingCorrectAnswer: false,
+                currentChoices: [],
               },
             });
           }
@@ -384,10 +443,12 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
               phase: 'round-summary',
               currentWord: null,
               showingCorrectAnswer: false,
+              currentChoices: [],
             },
           });
         }
       } else {
+        const nextChoices = buildChoicesForWord(active, nextIndex);
         set({
           active: {
             ...active,
@@ -395,6 +456,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             currentWord: active.wordQueue[nextIndex],
             showingCorrectAnswer: false,
             hintUsed: false,
+            hintLevel: 0,
+            currentChoices: nextChoices,
             phase: 'word-display',
           },
         });
@@ -410,6 +473,9 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
     if (nextRound === 2) {
       const queue = prepareRound2(active.allWords);
+      const firstChoices = active.mode === 'self' && queue[0]
+        ? generateChoices(queue[0].word, active.allWords, queue[0].direction)
+        : [];
       set({
         active: {
           ...active,
@@ -423,11 +489,14 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           directCorrectThisRound: 0,
           showingCorrectAnswer: false,
           hintUsed: false,
+          hintLevel: 0,
+          currentChoices: firstChoices,
         },
       });
     } else if (nextRound === 3) {
       // Round 3 starts from mastery queue (already initialized in between-rounds)
       const next = pickNextWord(active.masteryQueue, null);
+      const nextChoices = next ? buildChoicesForMastery(active, next.item.word, next.direction) : [];
       set({
         active: {
           ...active,
@@ -438,7 +507,9 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           directCorrectThisRound: 0,
           showingCorrectAnswer: false,
           hintUsed: false,
+          hintLevel: 0,
           lastWordId: null,
+          currentChoices: nextChoices,
         },
       });
     }
@@ -459,6 +530,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       completedAt: Date.now(),
       totalElapsedMs: elapsed,
       rounds: active.roundResults,
+      mode: active.mode,
     });
 
     useTimerStore.getState().reset();

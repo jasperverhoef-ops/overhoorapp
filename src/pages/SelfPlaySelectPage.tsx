@@ -1,0 +1,85 @@
+import { useNavigate, useParams } from 'react-router-dom';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Zap, Sliders, ArrowLeft } from 'lucide-react';
+import { db } from '../db';
+import { useAppStore } from '../stores/useAppStore';
+import { LANGUAGE_FLAGS } from '../models/types';
+
+export function SelfPlaySelectPage() {
+  const { listId } = useParams<{ listId: string }>();
+  const navigate = useNavigate();
+  const selectedChildId = useAppStore((s) => s.selectedChildId);
+
+  const child = useLiveQuery(
+    () => (selectedChildId ? db.children.get(selectedChildId) : undefined),
+    [selectedChildId]
+  );
+
+  const list = useLiveQuery(
+    () => (listId ? db.wordLists.get(listId) : undefined),
+    [listId]
+  );
+
+  if (!child || !list) return null;
+
+  return (
+    <div className="min-h-full bg-gradient-to-b from-blue-50 to-white flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+        <div className="flex items-center h-14 px-4">
+          <button
+            onClick={() => navigate(`/play/${listId}/mode`)}
+            className="mr-2 p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 active:bg-gray-200 touch-manipulation"
+            aria-label="Terug"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
+          </button>
+          <h1 className="text-lg font-bold text-gray-900 truncate flex-1">
+            Zelf oefenen
+          </h1>
+        </div>
+      </header>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 max-w-md mx-auto w-full">
+        {/* List info */}
+        <div className="mb-8 text-center">
+          <span className="text-4xl mb-2 block">{LANGUAGE_FLAGS[list.sourceLanguage]}</span>
+          <h2 className="text-xl font-bold text-gray-900">{list.name}</h2>
+        </div>
+
+        {/* Play type buttons */}
+        <div className="w-full space-y-4">
+          <button
+            onClick={() => navigate(`/play/${listId}/self/quick`)}
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-6 border-2 border-blue-100 hover:border-blue-400 hover:shadow-lg active:bg-blue-50 transition-all touch-manipulation text-left"
+          >
+            <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Zap className="w-7 h-7 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Quick Play</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Start meteen met multiple choice op basis van je niveau
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate(`/play/${listId}/self/free`)}
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-6 border-2 border-purple-100 hover:border-purple-400 hover:shadow-lg active:bg-purple-50 transition-all touch-manipulation text-left"
+          >
+            <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Sliders className="w-7 h-7 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Vrije Keuze</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Kies zelf hoe je wilt oefenen (Multiple Choice, Typen)
+              </p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

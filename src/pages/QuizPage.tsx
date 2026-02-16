@@ -62,12 +62,12 @@ export function QuizPage() {
         ) : (
           <div className="space-y-2">
             <p className="text-sm text-gray-500 mb-3">
-              Kies een lijst om te starten met het 3-rondes systeem
+              Kies een lijst om te oefenen
             </p>
             {playableLists.map((list) => (
               <button
                 key={list.id}
-                onClick={() => navigate(`/play/${list.id}`)}
+                onClick={() => navigate(`/play/${list.id}/mode`)}
                 className="flex items-center w-full bg-white rounded-xl px-4 py-4 border border-gray-100 hover:shadow-md active:bg-gray-50 transition-all touch-manipulation text-left"
               >
                 <span className="text-2xl mr-3">{LANGUAGE_FLAGS[list.sourceLanguage]}</span>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db';
 import { useSessionStore } from '../../stores/useSessionStore';
@@ -8,22 +8,25 @@ import { useAppStore } from '../../stores/useAppStore';
 import { getMasteryProgress } from '../../lib/round3Queue';
 import { playCorrectSound, playWrongSound } from '../../lib/sounds';
 import { RoundIntro } from './RoundIntro';
-import { WordCard } from './WordCard';
+import { SelfTrainWordCard } from './SelfTrainWordCard';
+import { ParentWordCard } from './ParentWordCard';
 import { ShowingAnswer } from './ShowingAnswer';
 import { RoundSummary } from './RoundSummary';
 import { BetweenRounds } from './BetweenRounds';
 import { SessionComplete } from './SessionComplete';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import type { TrainingMode } from '../../models/types';
 
 export function QuizScreen() {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const selectedChildId = useAppStore((s) => s.selectedChildId);
   const soundEnabled = useAppStore((s) => s.soundEnabled);
   const active = useSessionStore((s) => s.active);
   const startSession = useSessionStore((s) => s.startSession);
   const answerWord = useSessionStore((s) => s.answerWord);
-  const showHint = useSessionStore((s) => s.showHint);
+  const advanceHint = useSessionStore((s) => s.advanceHint);
   const dismissAnswer = useSessionStore((s) => s.dismissAnswer);
   const startNextRound = useSessionStore((s) => s.startNextRound);
   const completeSession = useSessionStore((s) => s.completeSession);
@@ -32,6 +35,9 @@ export function QuizScreen() {
   const timerResume = useTimerStore((s) => s.resume);
   const timerIsRunning = useTimerStore((s) => s.isRunning);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+
+  // Determine training mode from URL path
+  const trainingMode: TrainingMode = location.pathname.includes('/parent') ? 'parent' : 'self';
 
   const list = useLiveQuery(
     () => (listId ? db.wordLists.get(listId) : undefined),
@@ -83,10 +89,11 @@ export function QuizScreen() {
         list.id,
         list.name,
         list.sourceLanguage,
-        words
+        words,
+        trainingMode
       );
     }
-  }, [list, words, child, active, startSession]);
+  }, [list, words, child, active, startSession, trainingMode]);
 
   const handleStartRound = useCallback(() => {
     if (!active) return;
@@ -110,9 +117,9 @@ export function QuizScreen() {
     answerWord('wrong');
   }, [soundEnabled, answerWord]);
 
-  const handleHint = useCallback(() => {
-    showHint();
-  }, [showHint]);
+  const handleAdvanceHint = useCallback(() => {
+    advanceHint();
+  }, [advanceHint]);
 
   const handleDismissAnswer = useCallback(() => {
     dismissAnswer();
@@ -177,6 +184,7 @@ export function QuizScreen() {
           sourceLanguage={active.sourceLanguage}
           totalWords={active.allWords.length}
           difficultWordCount={active.masteryQueue.length || undefined}
+          mode={active.mode}
           onStart={handleStartRound}
         />
       );
@@ -205,26 +213,46 @@ export function QuizScreen() {
             }
           : null;
 
+      const wordCardElement = active.mode === 'self' ? (
+        <SelfTrainWordCard
+          round={active.currentRound}
+          word={active.currentWord}
+          sourceLanguage={active.sourceLanguage}
+          progress={progress}
+          masteryInfo={masteryInfo}
+          childName={active.childName}
+          listName={active.listName}
+          hintLevel={active.hintLevel}
+          choices={active.currentChoices}
+          onGood={handleGood}
+          onWrong={handleWrong}
+          onAdvanceHint={handleAdvanceHint}
+          onQuit={() => setShowQuitConfirm(true)}
+        />
+      ) : (
+        <ParentWordCard
+          round={active.currentRound}
+          word={active.currentWord}
+          sourceLanguage={active.sourceLanguage}
+          progress={progress}
+          masteryInfo={masteryInfo}
+          childName={active.childName}
+          listName={active.listName}
+          hintLevel={active.hintLevel}
+          onGood={handleGood}
+          onWrong={handleWrong}
+          onAdvanceHint={handleAdvanceHint}
+          onQuit={() => setShowQuitConfirm(true)}
+        />
+      );
+
       return (
         <>
-          <WordCard
-            round={active.currentRound}
-            word={active.currentWord}
-            sourceLanguage={active.sourceLanguage}
-            progress={progress}
-            masteryInfo={masteryInfo}
-            childName={active.childName}
-            listName={active.listName}
-            hintUsed={active.hintUsed}
-            onGood={handleGood}
-            onWrong={handleWrong}
-            onHint={handleHint}
-            onQuit={() => setShowQuitConfirm(true)}
-          />
+          {wordCardElement}
           {showQuitConfirm && (
             <ConfirmDialog
               title="Sessie stoppen?"
-              description="Je voortgang van deze sessie gaat verloren als je stopt."
+              description="Weet je zeker dat je wilt stoppen? Je voortgang van deze ronde gaat verloren."
               confirmLabel="Stoppen"
               onConfirm={handleQuit}
               onCancel={() => setShowQuitConfirm(false)}
