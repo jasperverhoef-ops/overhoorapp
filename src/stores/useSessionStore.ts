@@ -104,7 +104,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     const firstWord = queue[0] ?? null;
     const isSelf = mode === 'self';
 
-    const initialChoices = isSelf && firstWord
+    const initialChoices = isSelf && gameType !== 'typing' && firstWord
       ? generateChoices(firstWord.word, words, firstWord.direction)
       : [];
 
@@ -485,7 +485,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
     if (nextRound === 2) {
       const queue = prepareRound2(active.allWords);
-      const firstChoices = active.mode === 'self' && queue[0]
+      const firstChoices = active.mode === 'self' && active.gameType !== 'typing' && queue[0]
         ? generateChoices(queue[0].word, active.allWords, queue[0].direction)
         : [];
       set({
