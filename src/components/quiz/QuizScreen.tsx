@@ -73,14 +73,18 @@ export function QuizScreen() {
     }
   }, [active, timerIsRunning, timerResume]);
 
-  // If we have a restored session but it's for a different list, abandon it
+  // If we have a restored session but it's for a different list or mode, abandon it
   useEffect(() => {
-    if (active && listId && active.listId !== listId) {
-      abandonSession();
+    if (active && listId) {
+      const listMismatch = active.listId !== listId;
+      const modeMismatch = active.mode !== trainingMode;
+      if (listMismatch || modeMismatch) {
+        abandonSession();
+      }
     }
-  }, [active, listId, abandonSession]);
+  }, [active, listId, trainingMode, abandonSession]);
 
-  // Initialize session when data is ready (only if no restored session)
+  // Initialize session when data is ready (only if no active session)
   useEffect(() => {
     if (list && words && words.length >= 2 && child && !active) {
       startSession(
@@ -215,6 +219,7 @@ export function QuizScreen() {
 
       const wordCardElement = active.mode === 'self' ? (
         <SelfTrainWordCard
+          key={active.currentWord.word.id}
           round={active.currentRound}
           word={active.currentWord}
           sourceLanguage={active.sourceLanguage}
@@ -224,6 +229,7 @@ export function QuizScreen() {
           listName={active.listName}
           hintLevel={active.hintLevel}
           choices={active.currentChoices}
+          streak={active.currentStreak}
           onGood={handleGood}
           onWrong={handleWrong}
           onAdvanceHint={handleAdvanceHint}
@@ -231,6 +237,7 @@ export function QuizScreen() {
         />
       ) : (
         <ParentWordCard
+          key={active.currentWord.word.id}
           round={active.currentRound}
           word={active.currentWord}
           sourceLanguage={active.sourceLanguage}
@@ -239,6 +246,7 @@ export function QuizScreen() {
           childName={active.childName}
           listName={active.listName}
           hintLevel={active.hintLevel}
+          streak={active.currentStreak}
           onGood={handleGood}
           onWrong={handleWrong}
           onAdvanceHint={handleAdvanceHint}

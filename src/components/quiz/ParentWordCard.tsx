@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Check, X, Lightbulb, Square } from 'lucide-react';
+import { Check, X, Lightbulb, Square, Flame } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { TimerDisplay } from './TimerDisplay';
@@ -16,6 +16,7 @@ interface ParentWordCardProps {
   childName: string;
   listName: string;
   hintLevel: HintLevel;
+  streak: number;
   onGood: () => void;
   onWrong: () => void;
   onAdvanceHint: () => void;
@@ -37,6 +38,7 @@ export function ParentWordCard({
   childName,
   listName,
   hintLevel,
+  streak,
   onGood,
   onWrong,
   onAdvanceHint,
@@ -126,6 +128,13 @@ export function ParentWordCard({
           color={colors.progress}
           showLabel={false}
         />
+        {/* Streak indicator */}
+        {streak >= 5 && (
+          <div className="flex items-center justify-center gap-1.5 mt-2">
+            <Flame className="w-4 h-4 text-orange-500" />
+            <span className="text-sm font-bold text-orange-600">{streak} streak!</span>
+          </div>
+        )}
       </div>
 
       {/* Word display */}

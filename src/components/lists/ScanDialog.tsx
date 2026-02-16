@@ -195,6 +195,9 @@ export function ScanDialog({ listId, sourceLanguage, onClose }: ScanDialogProps)
             <div>
               <p className="text-lg font-medium text-gray-900">Maak een foto van je woordenlijst</p>
               <p className="text-sm text-gray-500 mt-1">Zorg dat beide kolommen goed zichtbaar zijn</p>
+              <p className="text-xs text-amber-600 mt-2 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                ⚠️ Let op: Het scannen werkt niet altijd perfect. Controleer de woorden na het scannen.
+              </p>
             </div>
             <Button variant="primary" size="lg" onClick={triggerCapture}>
               <span className="flex items-center gap-2">

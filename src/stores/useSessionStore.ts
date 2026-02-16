@@ -134,6 +134,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         directCorrectThisRound: 0,
         roundResults: [],
         hintUsed: false,
+        currentStreak: 0,
       },
     });
   },
@@ -153,6 +154,9 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       attemptNumber: active.answersThisRound.filter((a: WordAnswer) => a.wordId === wordId).length + 1,
     };
     const newAnswers = [...active.answersThisRound, answer];
+
+    // Update streak
+    const newStreak = result === 'correct' ? active.currentStreak + 1 : 0;
 
     // Haptic feedback
     if (navigator.vibrate) {
@@ -174,6 +178,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             showingCorrectAnswer: true,
             hintUsed: false,
             hintLevel: 0,
+            currentStreak: newStreak,
             phase: 'showing-answer',
           },
         });
@@ -198,6 +203,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             currentWord: null,
             lastWordId: wordId,
             currentChoices: [],
+            currentStreak: newStreak,
           },
         });
       } else {
@@ -215,6 +221,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             hintUsed: false,
             hintLevel: 0,
             currentChoices: nextChoices,
+            currentStreak: newStreak,
             phase: 'word-display',
           },
         });
@@ -244,6 +251,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             showingCorrectAnswer: true,
             hintUsed: false,
             hintLevel: 0,
+            currentStreak: newStreak,
             phase: 'showing-answer',
           },
         });
@@ -278,6 +286,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
                 phase: 'session-complete',
                 currentWord: null,
                 currentChoices: [],
+                currentStreak: newStreak,
               },
             });
           } else {
@@ -293,6 +302,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
                 phase: 'between-rounds',
                 currentWord: null,
                 currentChoices: [],
+                currentStreak: newStreak,
               },
             });
           }
@@ -307,6 +317,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
               phase: 'round-summary',
               currentWord: null,
               currentChoices: [],
+              currentStreak: newStreak,
             },
           });
         }
@@ -325,6 +336,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             hintUsed: false,
             hintLevel: 0,
             currentChoices: nextChoices,
+            currentStreak: newStreak,
             phase: 'word-display',
           },
         });
@@ -491,6 +503,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           hintUsed: false,
           hintLevel: 0,
           currentChoices: firstChoices,
+          currentStreak: 0,
         },
       });
     } else if (nextRound === 3) {
@@ -510,6 +523,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           hintLevel: 0,
           lastWordId: null,
           currentChoices: nextChoices,
+          currentStreak: 0,
         },
       });
     }
@@ -540,6 +554,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
   abandonSession: () => {
     useTimerStore.getState().reset();
     set({ active: null });
+    // Explicitly clear sessionStorage to prevent stale session restoration
+    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
   },
 }));
 

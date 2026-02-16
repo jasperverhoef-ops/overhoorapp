@@ -117,6 +117,7 @@ export interface ActiveSession {
   directCorrectThisRound: number;
   roundResults: RoundResult[];
   hintUsed: boolean;
+  currentStreak: number;
 }
 
 export const LANGUAGE_LABELS: Record<Language, string> = {

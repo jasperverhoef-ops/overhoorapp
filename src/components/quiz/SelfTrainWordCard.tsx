@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Lightbulb, Square } from 'lucide-react';
+import { Lightbulb, Square, Flame } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { TimerDisplay } from './TimerDisplay';
@@ -17,6 +17,7 @@ interface SelfTrainWordCardProps {
   listName: string;
   hintLevel: HintLevel;
   choices: ChoiceOption[];
+  streak: number;
   onGood: () => void;
   onWrong: () => void;
   onAdvanceHint: () => void;
@@ -39,6 +40,7 @@ export function SelfTrainWordCard({
   listName,
   hintLevel,
   choices,
+  streak,
   onGood,
   onWrong,
   onAdvanceHint,
@@ -135,6 +137,13 @@ export function SelfTrainWordCard({
           color={colors.progress}
           showLabel={false}
         />
+        {/* Streak indicator */}
+        {streak >= 5 && (
+          <div className="flex items-center justify-center gap-1.5 mt-2">
+            <Flame className="w-4 h-4 text-orange-500" />
+            <span className="text-sm font-bold text-orange-600">{streak} streak!</span>
+          </div>
+        )}
       </div>
 
       {/* Word display */}

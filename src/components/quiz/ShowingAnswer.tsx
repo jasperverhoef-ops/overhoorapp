@@ -20,9 +20,9 @@ export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: Showin
     : `NL \u2192 ${LANGUAGE_LABELS[sourceLanguage]}`;
 
   useEffect(() => {
-    // Animate progress bar over 2 seconds
+    // Animate progress bar over 4 seconds
     const start = Date.now();
-    const duration = 2000;
+    const duration = 4000;
     const interval = setInterval(() => {
       const elapsed = Date.now() - start;
       setProgress(Math.min(100, (elapsed / duration) * 100));
