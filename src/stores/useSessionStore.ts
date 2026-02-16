@@ -85,14 +85,14 @@ interface SessionState {
 }
 
 function buildChoicesForWord(active: ActiveSession, wordIndex: number): import('../models/types').ChoiceOption[] {
-  if (active.mode !== 'self') return [];
+  if (active.mode !== 'self' || active.gameType === 'typing') return [];
   const roundWord = active.wordQueue[wordIndex];
   if (!roundWord) return [];
   return generateChoices(roundWord.word, active.allWords, roundWord.direction);
 }
 
 function buildChoicesForMastery(active: ActiveSession, word: Word, direction: import('../models/types').Direction): import('../models/types').ChoiceOption[] {
-  if (active.mode !== 'self') return [];
+  if (active.mode !== 'self' || active.gameType === 'typing') return [];
   return generateChoices(word, active.allWords, direction);
 }
 

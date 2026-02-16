@@ -43,6 +43,13 @@ body {
   animation: flash-red 400ms ease-out;
 }
 
+/* Motivation quote bounce-in animation */
+@keyframes bounceIn {
+  0% { transform: translateY(-20px); opacity: 0; }
+  50% { transform: translateY(4px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
 /* Smooth page transitions */
 .page-enter {
   opacity: 0;

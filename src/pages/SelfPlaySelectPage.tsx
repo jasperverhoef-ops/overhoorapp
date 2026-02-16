@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Zap, Sliders, ArrowLeft } from 'lucide-react';
+import { Grid2X2, Keyboard, ArrowLeft } from 'lucide-react';
 import { db } from '../db';
 import { useAppStore } from '../stores/useAppStore';
 import { LANGUAGE_FLAGS } from '../models/types';
@@ -47,34 +47,34 @@ export function SelfPlaySelectPage() {
           <h2 className="text-xl font-bold text-gray-900">{list.name}</h2>
         </div>
 
-        {/* Play type buttons */}
+        {/* Game type buttons */}
         <div className="w-full space-y-4">
           <button
-            onClick={() => navigate(`/play/${listId}/self/quick`)}
+            onClick={() => navigate(`/play/${listId}/self/mc`)}
             className="w-full flex items-center gap-4 bg-white rounded-2xl p-6 border-2 border-blue-100 hover:border-blue-400 hover:shadow-lg active:bg-blue-50 transition-all touch-manipulation text-left"
           >
             <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Zap className="w-7 h-7 text-blue-600" />
+              <Grid2X2 className="w-7 h-7 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">Quick Play</h3>
+              <h3 className="text-lg font-bold text-gray-900">Multiple Choice</h3>
               <p className="text-sm text-gray-500 mt-0.5">
-                Start meteen met multiple choice op basis van je niveau
+                Kies het juiste antwoord uit 4 opties
               </p>
             </div>
           </button>
 
           <button
-            onClick={() => navigate(`/play/${listId}/self/free`)}
-            className="w-full flex items-center gap-4 bg-white rounded-2xl p-6 border-2 border-purple-100 hover:border-purple-400 hover:shadow-lg active:bg-purple-50 transition-all touch-manipulation text-left"
+            onClick={() => navigate(`/play/${listId}/self/typing`)}
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-6 border-2 border-green-100 hover:border-green-400 hover:shadow-lg active:bg-green-50 transition-all touch-manipulation text-left"
           >
-            <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Sliders className="w-7 h-7 text-purple-600" />
+            <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Keyboard className="w-7 h-7 text-green-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">Vrije Keuze</h3>
+              <h3 className="text-lg font-bold text-gray-900">Typen</h3>
               <p className="text-sm text-gray-500 mt-0.5">
-                Kies zelf hoe je wilt oefenen (Multiple Choice, Typen)
+                Typ zelf het antwoord — moeilijker maar je leert sneller!
               </p>
             </div>
           </button>

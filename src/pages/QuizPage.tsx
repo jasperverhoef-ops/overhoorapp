@@ -42,7 +42,7 @@ export function QuizPage() {
 
   return (
     <div className="min-h-full bg-gray-50">
-      <Header title={`${child.name} - Overhoren`} />
+      <Header title={child.name} />
 
       <div className="p-4">
         {playableLists.length === 0 ? (

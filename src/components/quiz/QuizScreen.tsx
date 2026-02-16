@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db';
@@ -7,6 +7,8 @@ import { useTimerStore } from '../../stores/useTimerStore';
 import { useAppStore } from '../../stores/useAppStore';
 import { getMasteryProgress } from '../../lib/round3Queue';
 import { playCorrectSound, playWrongSound } from '../../lib/sounds';
+import { getRandomQuote, getNextQuoteThreshold } from '../../lib/motivationQuotes';
+import { updateDailyHighStreak, getDailyHighStreak } from '../../lib/streakTracker';
 import { RoundIntro } from './RoundIntro';
 import { SelfTrainWordCard } from './SelfTrainWordCard';
 import { ParentWordCard } from './ParentWordCard';
@@ -15,7 +17,7 @@ import { RoundSummary } from './RoundSummary';
 import { BetweenRounds } from './BetweenRounds';
 import { SessionComplete } from './SessionComplete';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
-import type { TrainingMode } from '../../models/types';
+import type { TrainingMode, GameType } from '../../models/types';
 
 export function QuizScreen() {
   const { listId } = useParams<{ listId: string }>();
@@ -36,8 +38,17 @@ export function QuizScreen() {
   const timerIsRunning = useTimerStore((s) => s.isRunning);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
-  // Determine training mode from URL path
+  // Motivation quote state
+  const [motivationQuote, setMotivationQuote] = useState<string | null>(null);
+  const totalAnswersRef = useRef(0);
+  const nextQuoteAtRef = useRef(getNextQuoteThreshold(0));
+
+  // Daily high streak
+  const [dailyHighStreak, setDailyHighStreak] = useState(0);
+
+  // Determine training mode and game type from URL path
   const trainingMode: TrainingMode = location.pathname.includes('/parent') ? 'parent' : 'self';
+  const gameType: GameType = location.pathname.includes('/typing') ? 'typing' : 'multiple-choice';
 
   const list = useLiveQuery(
     () => (listId ? db.wordLists.get(listId) : undefined),
@@ -53,6 +64,44 @@ export function QuizScreen() {
     () => (selectedChildId ? db.children.get(selectedChildId) : undefined),
     [selectedChildId]
   );
+
+  // Load daily high streak when child is loaded
+  useEffect(() => {
+    if (child) {
+      setDailyHighStreak(getDailyHighStreak(child.id));
+    }
+  }, [child]);
+
+  // Track answers for motivation quotes and update daily streak
+  useEffect(() => {
+    if (!active) return;
+    const currentTotal = active.answersThisRound.length +
+      active.roundResults.reduce((sum, r) => sum + r.answers.length, 0);
+
+    if (currentTotal > totalAnswersRef.current) {
+      totalAnswersRef.current = currentTotal;
+
+      // Update daily high streak
+      if (active.currentStreak > 0 && child) {
+        const newHigh = updateDailyHighStreak(child.id, active.currentStreak);
+        setDailyHighStreak(newHigh);
+      }
+
+      // Check for motivation quote
+      if (currentTotal >= nextQuoteAtRef.current) {
+        setMotivationQuote(getRandomQuote());
+        nextQuoteAtRef.current = getNextQuoteThreshold(currentTotal);
+      }
+    }
+  }, [active, child]);
+
+  // Auto-dismiss motivation quote
+  useEffect(() => {
+    if (motivationQuote) {
+      const t = setTimeout(() => setMotivationQuote(null), 3500);
+      return () => clearTimeout(t);
+    }
+  }, [motivationQuote]);
 
   // Prevent accidental tab close/refresh during active quiz
   useEffect(() => {
@@ -73,16 +122,17 @@ export function QuizScreen() {
     }
   }, [active, timerIsRunning, timerResume]);
 
-  // If we have a restored session but it's for a different list or mode, abandon it
+  // If we have a restored session but it's for a different list, mode, or game type, abandon it
   useEffect(() => {
     if (active && listId) {
       const listMismatch = active.listId !== listId;
       const modeMismatch = active.mode !== trainingMode;
-      if (listMismatch || modeMismatch) {
+      const gameTypeMismatch = trainingMode === 'self' && active.gameType !== gameType;
+      if (listMismatch || modeMismatch || gameTypeMismatch) {
         abandonSession();
       }
     }
-  }, [active, listId, trainingMode, abandonSession]);
+  }, [active, listId, trainingMode, gameType, abandonSession]);
 
   // Initialize session when data is ready (only if no active session)
   useEffect(() => {
@@ -94,10 +144,11 @@ export function QuizScreen() {
         list.name,
         list.sourceLanguage,
         words,
-        trainingMode
+        trainingMode,
+        gameType
       );
     }
-  }, [list, words, child, active, startSession, trainingMode]);
+  }, [list, words, child, active, startSession, trainingMode, gameType]);
 
   const handleStartRound = useCallback(() => {
     if (!active) return;
@@ -146,6 +197,15 @@ export function QuizScreen() {
     navigate('/play');
   }, [abandonSession, navigate]);
 
+  // Motivation quote overlay
+  const motivationOverlay = motivationQuote ? (
+    <div className="fixed inset-x-0 top-16 z-50 flex justify-center px-4 pointer-events-none" style={{ animation: 'bounceIn 0.5s ease-out' }}>
+      <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-6 py-3 rounded-2xl shadow-lg max-w-sm">
+        <p className="text-center font-bold text-sm">{motivationQuote}</p>
+      </div>
+    </div>
+  ) : null;
+
   // Loading state
   if (!list || !words || !child) {
     return (
@@ -183,14 +243,17 @@ export function QuizScreen() {
   switch (active.phase) {
     case 'round-intro':
       return (
-        <RoundIntro
-          round={active.currentRound}
-          sourceLanguage={active.sourceLanguage}
-          totalWords={active.allWords.length}
-          difficultWordCount={active.masteryQueue.length || undefined}
-          mode={active.mode}
-          onStart={handleStartRound}
-        />
+        <>
+          {motivationOverlay}
+          <RoundIntro
+            round={active.currentRound}
+            sourceLanguage={active.sourceLanguage}
+            totalWords={active.allWords.length}
+            difficultWordCount={active.masteryQueue.length || undefined}
+            mode={active.mode}
+            onStart={handleStartRound}
+          />
+        </>
       );
 
     case 'word-display': {
@@ -226,10 +289,11 @@ export function QuizScreen() {
           progress={progress}
           masteryInfo={masteryInfo}
           childName={active.childName}
-          listName={active.listName}
           hintLevel={active.hintLevel}
           choices={active.currentChoices}
           streak={active.currentStreak}
+          dailyHighStreak={dailyHighStreak}
+          gameType={active.gameType || 'multiple-choice'}
           onGood={handleGood}
           onWrong={handleWrong}
           onAdvanceHint={handleAdvanceHint}
@@ -244,9 +308,9 @@ export function QuizScreen() {
           progress={progress}
           masteryInfo={masteryInfo}
           childName={active.childName}
-          listName={active.listName}
           hintLevel={active.hintLevel}
           streak={active.currentStreak}
+          dailyHighStreak={dailyHighStreak}
           onGood={handleGood}
           onWrong={handleWrong}
           onAdvanceHint={handleAdvanceHint}
@@ -256,6 +320,7 @@ export function QuizScreen() {
 
       return (
         <>
+          {motivationOverlay}
           {wordCardElement}
           {showQuitConfirm && (
             <ConfirmDialog
@@ -273,12 +338,15 @@ export function QuizScreen() {
     case 'showing-answer':
       if (!active.currentWord) return null;
       return (
-        <ShowingAnswer
-          word={active.currentWord}
-          sourceLanguage={active.sourceLanguage}
-          round={active.currentRound}
-          onDismiss={handleDismissAnswer}
-        />
+        <>
+          {motivationOverlay}
+          <ShowingAnswer
+            word={active.currentWord}
+            sourceLanguage={active.sourceLanguage}
+            round={active.currentRound}
+            onDismiss={handleDismissAnswer}
+          />
+        </>
       );
 
     case 'round-summary': {

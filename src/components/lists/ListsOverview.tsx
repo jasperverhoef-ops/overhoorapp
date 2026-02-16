@@ -46,7 +46,7 @@ export function ListsOverview() {
   return (
     <div className="min-h-full bg-gray-50">
       <Header
-        title={`${child.name} - Lijsten`}
+        title={child.name}
         right={
           <Button
             variant="primary"

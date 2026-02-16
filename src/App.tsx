@@ -44,7 +44,7 @@ export function App() {
             </ProtectedRoute>
           }
         />
-        {/* Self-play type selection: quick vs free */}
+        {/* Self-play type selection: MC vs Typing */}
         <Route
           path="/play/:listId/self"
           element={
@@ -55,7 +55,7 @@ export function App() {
         />
         {/* Quiz screens with mode parameter */}
         <Route
-          path="/play/:listId/self/quick"
+          path="/play/:listId/self/mc"
           element={
             <ProtectedRoute>
               <QuizScreen />
@@ -63,7 +63,7 @@ export function App() {
           }
         />
         <Route
-          path="/play/:listId/self/free"
+          path="/play/:listId/self/typing"
           element={
             <ProtectedRoute>
               <QuizScreen />

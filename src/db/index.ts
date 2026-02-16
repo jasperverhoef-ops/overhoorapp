@@ -20,7 +20,7 @@ db.on('populate', (tx) => {
   tx.table('children').bulkAdd([
     {
       id: crypto.randomUUID(),
-      name: 'Joel',
+      name: 'Jo\u00ebl',
       avatarColor: '#3b82f6',
       createdAt: Date.now(),
     },

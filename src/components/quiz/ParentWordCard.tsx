@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Check, X, Lightbulb, Square, Flame } from 'lucide-react';
+import { Check, X, Lightbulb, Flame, Trophy } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { TimerDisplay } from './TimerDisplay';
@@ -14,9 +14,9 @@ interface ParentWordCardProps {
   progress: { current: number; total: number };
   masteryInfo?: { item: MasteryItem; mastered: number; total: number } | null;
   childName: string;
-  listName: string;
   hintLevel: HintLevel;
   streak: number;
+  dailyHighStreak: number;
   onGood: () => void;
   onWrong: () => void;
   onAdvanceHint: () => void;
@@ -36,9 +36,9 @@ export function ParentWordCard({
   progress,
   masteryInfo,
   childName,
-  listName,
   hintLevel,
   streak,
+  dailyHighStreak,
   onGood,
   onWrong,
   onAdvanceHint,
@@ -87,7 +87,7 @@ export function ParentWordCard({
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <div className="flex-1">
-          <p className="text-sm font-semibold text-gray-900">{childName} - {listName}</p>
+          <p className="text-sm font-semibold text-gray-900">{childName}</p>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors.badge}`}>
               {colors.label}
@@ -105,7 +105,7 @@ export function ParentWordCard({
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             aria-label="Stop quiz"
           >
-            <Square className="w-5 h-5" />
+            <X className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -128,11 +128,21 @@ export function ParentWordCard({
           color={colors.progress}
           showLabel={false}
         />
-        {/* Streak indicator */}
+        {/* Streak indicator - more prominent */}
         {streak >= 5 && (
+          <div className="flex items-center justify-center gap-2 mt-3 py-2 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200">
+            <Flame className="w-5 h-5 text-orange-500" />
+            <span className="text-base font-bold text-orange-600">{streak} streak!</span>
+            {streak > 0 && streak >= dailyHighStreak && dailyHighStreak > 0 && (
+              <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-semibold">NIEUW RECORD!</span>
+            )}
+          </div>
+        )}
+        {/* Daily high streak (when no active streak shown) */}
+        {streak < 5 && dailyHighStreak >= 5 && (
           <div className="flex items-center justify-center gap-1.5 mt-2">
-            <Flame className="w-4 h-4 text-orange-500" />
-            <span className="text-sm font-bold text-orange-600">{streak} streak!</span>
+            <Trophy className="w-4 h-4 text-amber-400" />
+            <span className="text-xs text-amber-500 font-medium">Beste streak vandaag: {dailyHighStreak}</span>
           </div>
         )}
       </div>
