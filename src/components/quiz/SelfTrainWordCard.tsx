@@ -96,10 +96,12 @@ export function SelfTrainWordCard({
     setTypingResult(isCorrect ? 'correct' : 'wrong');
     if (isCorrect) {
       setFlash('good');
-      onGood();
+      // Brief pause so child sees "Goed zo!" before next word
+      setTimeout(() => onGood(), 1200);
     } else {
       setFlash('wrong');
-      onWrong();
+      // Brief pause so child sees red input before ShowingAnswer takes over
+      setTimeout(() => onWrong(), 800);
     }
   }, [typedAnswer, correctAnswer, typingResult, onGood, onWrong]);
 
@@ -276,11 +278,10 @@ export function SelfTrainWordCard({
                 </button>
               )}
             </div>
-            {/* Show correct answer when wrong */}
+            {/* Feedback after answering */}
             {typingResult === 'wrong' && (
               <div className="px-4 py-3 bg-red-50 rounded-xl border border-red-200">
-                <p className="text-xs text-red-400 text-center mb-1">Het goede antwoord:</p>
-                <p className="text-center font-bold text-red-700">{correctAnswer}</p>
+                <p className="text-center font-semibold text-red-600">Helaas, dat is niet goed</p>
               </div>
             )}
             {typingResult === 'correct' && (
