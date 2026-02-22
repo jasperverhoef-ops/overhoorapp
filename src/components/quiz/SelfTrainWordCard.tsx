@@ -35,6 +35,34 @@ function normalizeAnswer(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+function isNearlyCorrect(typed: string, correct: string): boolean {
+  const a = normalizeAnswer(typed);
+  const b = normalizeAnswer(correct);
+  if (a === b) return false;
+  const dist = levenshteinDistance(a, b);
+  if (dist === 1 && b.length >= 3) return true;
+  if (dist === 2 && b.length >= 6) return true;
+  return false;
+}
+
 export function SelfTrainWordCard({
   round,
   word,
@@ -55,7 +83,7 @@ export function SelfTrainWordCard({
   const [flash, setFlash] = useState<'good' | 'wrong' | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [typedAnswer, setTypedAnswer] = useState('');
-  const [typingResult, setTypingResult] = useState<'correct' | 'wrong' | null>(null);
+  const [typingResult, setTypingResult] = useState<'correct' | 'wrong' | 'nearly-correct' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const colors = roundColors[round];
 
@@ -92,15 +120,21 @@ export function SelfTrainWordCard({
 
   const handleTypingSubmit = useCallback(() => {
     if (typingResult !== null || !typedAnswer.trim()) return;
-    const isCorrect = normalizeAnswer(typedAnswer) === normalizeAnswer(correctAnswer);
-    setTypingResult(isCorrect ? 'correct' : 'wrong');
-    if (isCorrect) {
+    const normalizedTyped = normalizeAnswer(typedAnswer);
+    const normalizedCorrect = normalizeAnswer(correctAnswer);
+
+    if (normalizedTyped === normalizedCorrect) {
+      setTypingResult('correct');
       setFlash('good');
-      // Brief pause so child sees "Goed zo!" before next word
       setTimeout(() => onGood(), 1200);
-    } else {
+    } else if (isNearlyCorrect(typedAnswer, correctAnswer)) {
+      setTypingResult('nearly-correct');
       setFlash('wrong');
-      // Brief pause so child sees red input before ShowingAnswer takes over
+      // Longer pause so child can read the correct answer
+      setTimeout(() => onWrong(), 2000);
+    } else {
+      setTypingResult('wrong');
+      setFlash('wrong');
       setTimeout(() => onWrong(), 800);
     }
   }, [typedAnswer, correctAnswer, typingResult, onGood, onWrong]);
@@ -246,15 +280,16 @@ export function SelfTrainWordCard({
       <div className="px-4 pb-6 space-y-3 safe-area-bottom">
         {gameType === 'typing' ? (
           <>
-            {/* Typing input */}
+            {/* Typing input - no disabled to keep keyboard visible */}
             <div className="relative">
               <input
                 ref={inputRef}
                 type="text"
                 value={typedAnswer}
-                onChange={(e) => setTypedAnswer(e.target.value)}
+                onChange={(e) => {
+                  if (typingResult === null) setTypedAnswer(e.target.value);
+                }}
                 onKeyDown={handleKeyDown}
-                disabled={typingResult !== null}
                 placeholder="Typ je antwoord..."
                 autoComplete="off"
                 autoCapitalize="off"
@@ -265,7 +300,9 @@ export function SelfTrainWordCard({
                     ? 'bg-green-50 border-green-500 text-green-800'
                     : typingResult === 'wrong'
                       ? 'bg-red-50 border-red-500 text-red-800'
-                      : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-400 focus:bg-white'
+                      : typingResult === 'nearly-correct'
+                        ? 'bg-amber-50 border-amber-500 text-amber-800'
+                        : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-400 focus:bg-white'
                 }`}
               />
               {typingResult === null && (
@@ -282,6 +319,14 @@ export function SelfTrainWordCard({
             {typingResult === 'wrong' && (
               <div className="px-4 py-3 bg-red-50 rounded-xl border border-red-200">
                 <p className="text-center font-semibold text-red-600">Helaas, dat is niet goed</p>
+              </div>
+            )}
+            {typingResult === 'nearly-correct' && (
+              <div className="px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
+                <p className="text-center font-semibold text-amber-600">Bijna goed!</p>
+                <p className="text-center text-sm text-amber-800 mt-1">
+                  Het juiste antwoord is: <strong>{correctAnswer}</strong>
+                </p>
               </div>
             )}
             {typingResult === 'correct' && (

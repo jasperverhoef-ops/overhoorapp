@@ -280,9 +280,13 @@ export function QuizScreen() {
             }
           : null;
 
+      // Use answersThisRound.length in key to force remount when same word
+      // is presented again in Round 3 (prevents stale selectedIndex state)
+      const wordKey = `${active.currentWord.word.id}-${active.answersThisRound.length}`;
+
       const wordCardElement = active.mode === 'self' ? (
         <SelfTrainWordCard
-          key={active.currentWord.word.id}
+          key={wordKey}
           round={active.currentRound}
           word={active.currentWord}
           sourceLanguage={active.sourceLanguage}
@@ -301,7 +305,7 @@ export function QuizScreen() {
         />
       ) : (
         <ParentWordCard
-          key={active.currentWord.word.id}
+          key={wordKey}
           round={active.currentRound}
           word={active.currentWord}
           sourceLanguage={active.sourceLanguage}
