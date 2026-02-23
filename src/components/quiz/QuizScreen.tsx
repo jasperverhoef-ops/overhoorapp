@@ -12,12 +12,13 @@ import { updateDailyHighStreak, getDailyHighStreak } from '../../lib/streakTrack
 import { RoundIntro } from './RoundIntro';
 import { SelfTrainWordCard } from './SelfTrainWordCard';
 import { ParentWordCard } from './ParentWordCard';
+import { MemoryGame } from './MemoryGame';
 import { ShowingAnswer } from './ShowingAnswer';
 import { RoundSummary } from './RoundSummary';
 import { BetweenRounds } from './BetweenRounds';
 import { SessionComplete } from './SessionComplete';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
-import type { TrainingMode, GameType } from '../../models/types';
+import type { TrainingMode, GameType, Direction, AnswerResult } from '../../models/types';
 
 export function QuizScreen() {
   const { listId } = useParams<{ listId: string }>();
@@ -33,6 +34,7 @@ export function QuizScreen() {
   const startNextRound = useSessionStore((s) => s.startNextRound);
   const completeSession = useSessionStore((s) => s.completeSession);
   const abandonSession = useSessionStore((s) => s.abandonSession);
+  const answerMemoryBatch = useSessionStore((s) => s.answerMemoryBatch);
   const timerStart = useTimerStore((s) => s.start);
   const timerResume = useTimerStore((s) => s.resume);
   const timerIsRunning = useTimerStore((s) => s.isRunning);
@@ -48,7 +50,15 @@ export function QuizScreen() {
 
   // Determine training mode and game type from URL path
   const trainingMode: TrainingMode = location.pathname.includes('/parent') ? 'parent' : 'self';
-  const gameType: GameType = location.pathname.includes('/typing') ? 'typing' : 'multiple-choice';
+  const gameType: GameType = (() => {
+    const path = location.pathname;
+    if (path.includes('/typing')) return 'typing';
+    if (path.includes('/scramble')) return 'scramble';
+    if (path.includes('/blitz')) return 'blitz';
+    if (path.includes('/memory')) return 'memory';
+    if (path.includes('/letters')) return 'letter-builder';
+    return 'multiple-choice';
+  })();
 
   const list = useLiveQuery(
     () => (listId ? db.wordLists.get(listId) : undefined),
@@ -197,6 +207,11 @@ export function QuizScreen() {
     navigate('/play');
   }, [abandonSession, navigate]);
 
+  const handleMemoryComplete = useCallback((results: { wordId: string; direction: Direction; result: AnswerResult }[]) => {
+    if (soundEnabled) playCorrectSound();
+    answerMemoryBatch(results);
+  }, [soundEnabled, answerMemoryBatch]);
+
   // Motivation quote overlay
   const motivationOverlay = motivationQuote ? (
     <div className="fixed inset-x-0 top-16 z-50 flex justify-center px-4 pointer-events-none" style={{ animation: 'bounceIn 0.5s ease-out' }}>
@@ -257,6 +272,35 @@ export function QuizScreen() {
       );
 
     case 'word-display': {
+      // Memory game: renders its own full-screen component (falls back to MC for round 3)
+      if (active.gameType === 'memory' && active.currentRound !== 3) {
+        const memoryDirection = active.currentRound === 1 ? 'source-to-dutch' : 'dutch-to-source';
+        return (
+          <>
+            {motivationOverlay}
+            <MemoryGame
+              key={`memory-${active.currentRound}`}
+              round={active.currentRound}
+              words={active.allWords}
+              sourceLanguage={active.sourceLanguage}
+              childName={active.childName}
+              direction={memoryDirection as import('../../models/types').Direction}
+              onComplete={handleMemoryComplete}
+              onQuit={() => setShowQuitConfirm(true)}
+            />
+            {showQuitConfirm && (
+              <ConfirmDialog
+                title="Sessie stoppen?"
+                description="Weet je zeker dat je wilt stoppen? Je voortgang van deze ronde gaat verloren."
+                confirmLabel="Stoppen"
+                onConfirm={handleQuit}
+                onCancel={() => setShowQuitConfirm(false)}
+              />
+            )}
+          </>
+        );
+      }
+
       if (!active.currentWord) return null;
 
       const progress =
@@ -284,6 +328,9 @@ export function QuizScreen() {
       // is presented again in Round 3 (prevents stale selectedIndex state)
       const wordKey = `${active.currentWord.word.id}-${active.answersThisRound.length}`;
 
+      // For memory game in round 3, fall back to multiple-choice
+      const effectiveGameType = active.gameType === 'memory' ? 'multiple-choice' : (active.gameType || 'multiple-choice');
+
       const wordCardElement = active.mode === 'self' ? (
         <SelfTrainWordCard
           key={wordKey}
@@ -297,7 +344,7 @@ export function QuizScreen() {
           choices={active.currentChoices}
           streak={active.currentStreak}
           dailyHighStreak={dailyHighStreak}
-          gameType={active.gameType || 'multiple-choice'}
+          gameType={effectiveGameType}
           onGood={handleGood}
           onWrong={handleWrong}
           onAdvanceHint={handleAdvanceHint}

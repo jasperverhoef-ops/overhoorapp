@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Grid2X2, Keyboard, ArrowLeft } from 'lucide-react';
+import { Grid2X2, Keyboard, ArrowLeft, Shuffle, Zap, LayoutGrid, PencilLine } from 'lucide-react';
 import { db } from '../db';
 import { useAppStore } from '../stores/useAppStore';
 import { LANGUAGE_FLAGS } from '../models/types';
@@ -48,17 +48,17 @@ export function SelfPlaySelectPage() {
         </div>
 
         {/* Game type buttons */}
-        <div className="w-full space-y-4">
+        <div className="w-full space-y-3">
           <button
             onClick={() => navigate(`/play/${listId}/self/mc`)}
-            className="w-full flex items-center gap-4 bg-white rounded-2xl p-6 border-2 border-blue-100 hover:border-blue-400 hover:shadow-lg active:bg-blue-50 transition-all touch-manipulation text-left"
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-blue-100 hover:border-blue-400 hover:shadow-lg active:bg-blue-50 transition-all touch-manipulation text-left"
           >
-            <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Grid2X2 className="w-7 h-7 text-blue-600" />
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Grid2X2 className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">Multiple Choice</h3>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h3 className="text-base font-bold text-gray-900">Multiple Choice</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
                 Kies het juiste antwoord uit 4 opties
               </p>
             </div>
@@ -66,15 +66,75 @@ export function SelfPlaySelectPage() {
 
           <button
             onClick={() => navigate(`/play/${listId}/self/typing`)}
-            className="w-full flex items-center gap-4 bg-white rounded-2xl p-6 border-2 border-green-100 hover:border-green-400 hover:shadow-lg active:bg-green-50 transition-all touch-manipulation text-left"
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-green-100 hover:border-green-400 hover:shadow-lg active:bg-green-50 transition-all touch-manipulation text-left"
           >
-            <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Keyboard className="w-7 h-7 text-green-600" />
+            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Keyboard className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">Typen</h3>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h3 className="text-base font-bold text-gray-900">Typen</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
                 Typ zelf het antwoord — moeilijker maar je leert sneller!
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate(`/play/${listId}/self/scramble`)}
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-purple-100 hover:border-purple-400 hover:shadow-lg active:bg-purple-50 transition-all touch-manipulation text-left"
+          >
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Shuffle className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-gray-900">Scramble</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Zet de door elkaar gehusselde letters in de juiste volgorde
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate(`/play/${listId}/self/blitz`)}
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-orange-100 hover:border-orange-400 hover:shadow-lg active:bg-orange-50 transition-all touch-manipulation text-left"
+          >
+            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Zap className="w-6 h-6 text-orange-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-gray-900">Blitz</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Multiple choice met een afteltimer — snel denken!
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate(`/play/${listId}/self/memory`)}
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-pink-100 hover:border-pink-400 hover:shadow-lg active:bg-pink-50 transition-all touch-manipulation text-left"
+          >
+            <div className="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <LayoutGrid className="w-6 h-6 text-pink-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-gray-900">Memory</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Vind de juiste paren door kaarten om te draaien
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate(`/play/${listId}/self/letters`)}
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-teal-100 hover:border-teal-400 hover:shadow-lg active:bg-teal-50 transition-all touch-manipulation text-left"
+          >
+            <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <PencilLine className="w-6 h-6 text-teal-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-gray-900">Letterbygger</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Vul letter voor letter het woord in
               </p>
             </div>
           </button>

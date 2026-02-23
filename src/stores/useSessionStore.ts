@@ -76,6 +76,7 @@ interface SessionState {
     gameType?: GameType
   ) => void;
   answerWord: (result: AnswerResult) => void;
+  answerMemoryBatch: (results: { wordId: string; direction: import('../models/types').Direction; result: AnswerResult }[]) => void;
   showHint: () => void;
   advanceHint: () => void;
   dismissAnswer: () => void;
@@ -84,15 +85,24 @@ interface SessionState {
   abandonSession: () => void;
 }
 
+const MC_GAME_TYPES = new Set(['multiple-choice', 'blitz']);
+
+function needsChoices(active: ActiveSession): boolean {
+  if (active.mode !== 'self') return false;
+  // Memory mode falls back to MC in round 3
+  if (active.gameType === 'memory' && active.currentRound === 3) return true;
+  return MC_GAME_TYPES.has(active.gameType ?? 'multiple-choice');
+}
+
 function buildChoicesForWord(active: ActiveSession, wordIndex: number): import('../models/types').ChoiceOption[] {
-  if (active.mode !== 'self' || active.gameType === 'typing') return [];
+  if (!needsChoices(active)) return [];
   const roundWord = active.wordQueue[wordIndex];
   if (!roundWord) return [];
   return generateChoices(roundWord.word, active.allWords, roundWord.direction);
 }
 
 function buildChoicesForMastery(active: ActiveSession, word: Word, direction: import('../models/types').Direction): import('../models/types').ChoiceOption[] {
-  if (active.mode !== 'self' || active.gameType === 'typing') return [];
+  if (!needsChoices(active)) return [];
   return generateChoices(word, active.allWords, direction);
 }
 
@@ -104,7 +114,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     const firstWord = queue[0] ?? null;
     const isSelf = mode === 'self';
 
-    const initialChoices = isSelf && gameType !== 'typing' && firstWord
+    const initialChoices = isSelf && MC_GAME_TYPES.has(gameType ?? 'multiple-choice') && firstWord
       ? generateChoices(firstWord.word, words, firstWord.direction)
       : [];
 
@@ -344,6 +354,84 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     }
   },
 
+  answerMemoryBatch: (results) => {
+    const { active } = get();
+    if (!active) return;
+
+    const newAnswers: WordAnswer[] = [...active.answersThisRound];
+    const newCorrect = new Set(active.answeredCorrectly);
+
+    for (const r of results) {
+      newAnswers.push({
+        wordId: r.wordId,
+        direction: r.direction,
+        result: r.result,
+        attemptNumber: 1,
+      });
+      if (r.result === 'correct') {
+        newCorrect.add(r.wordId);
+      }
+    }
+
+    const directCorrect = countDirectCorrect(newAnswers);
+    const roundResult: RoundResult = {
+      roundNumber: active.currentRound as 1 | 2,
+      roundType: active.currentRound === 1 ? 'source-to-dutch' : 'dutch-to-source',
+      directCorrect,
+      totalWords: active.allWords.length,
+      answers: newAnswers,
+    };
+
+    useTimerStore.getState().pause();
+
+    if (active.currentRound === 2) {
+      const allRoundResults = [...active.roundResults, roundResult];
+      const round1Answers = allRoundResults[0]?.answers ?? [];
+      const round2Answers = roundResult.answers;
+      const difficultWords = getDifficultWords(round1Answers, round2Answers, active.allWords);
+
+      if (difficultWords.length === 0) {
+        set({
+          active: {
+            ...active,
+            answersThisRound: newAnswers,
+            answeredCorrectly: newCorrect,
+            roundResults: allRoundResults,
+            phase: 'session-complete',
+            currentWord: null,
+            currentChoices: [],
+          },
+        });
+      } else {
+        const masteryQueue = initializeMasteryQueue(difficultWords);
+        set({
+          active: {
+            ...active,
+            answersThisRound: newAnswers,
+            answeredCorrectly: newCorrect,
+            roundResults: allRoundResults,
+            masteryQueue,
+            phase: 'between-rounds',
+            currentWord: null,
+            currentChoices: [],
+          },
+        });
+      }
+    } else {
+      set({
+        active: {
+          ...active,
+          answersThisRound: newAnswers,
+          answeredCorrectly: newCorrect,
+          roundResults: [...active.roundResults, roundResult],
+          phase: 'round-summary',
+          currentWord: null,
+          currentChoices: [],
+        },
+      });
+    }
+  },
+
   showHint: () => {
     const { active } = get();
     if (!active) return;
@@ -485,7 +573,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
     if (nextRound === 2) {
       const queue = prepareRound2(active.allWords);
-      const firstChoices = active.mode === 'self' && active.gameType !== 'typing' && queue[0]
+      const firstChoices = active.mode === 'self' && MC_GAME_TYPES.has(active.gameType ?? 'multiple-choice') && queue[0]
         ? generateChoices(queue[0].word, active.allWords, queue[0].direction)
         : [];
       set({
