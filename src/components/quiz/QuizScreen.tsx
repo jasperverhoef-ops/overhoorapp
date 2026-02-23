@@ -13,6 +13,7 @@ import { RoundIntro } from './RoundIntro';
 import { SelfTrainWordCard } from './SelfTrainWordCard';
 import { ParentWordCard } from './ParentWordCard';
 import { MemoryGame } from './MemoryGame';
+import { BlitzGame } from './BlitzGame';
 import { ShowingAnswer } from './ShowingAnswer';
 import { RoundSummary } from './RoundSummary';
 import { BetweenRounds } from './BetweenRounds';
@@ -53,10 +54,8 @@ export function QuizScreen() {
   const gameType: GameType = (() => {
     const path = location.pathname;
     if (path.includes('/typing')) return 'typing';
-    if (path.includes('/scramble')) return 'scramble';
     if (path.includes('/blitz')) return 'blitz';
     if (path.includes('/memory')) return 'memory';
-    if (path.includes('/letters')) return 'letter-builder';
     return 'multiple-choice';
   })();
 
@@ -212,6 +211,12 @@ export function QuizScreen() {
     answerMemoryBatch(results);
   }, [soundEnabled, answerMemoryBatch]);
 
+  const handleBlitzComplete = useCallback(async (results: { wordId: string; direction: Direction; result: AnswerResult }[]) => {
+    answerMemoryBatch(results);
+    await completeSession();
+    navigate('/play');
+  }, [answerMemoryBatch, completeSession, navigate]);
+
   // Motivation quote overlay
   const motivationOverlay = motivationQuote ? (
     <div className="fixed inset-x-0 top-16 z-50 flex justify-center px-4 pointer-events-none" style={{ animation: 'bounceIn 0.5s ease-out' }}>
@@ -254,9 +259,23 @@ export function QuizScreen() {
     );
   }
 
+  // Auto-start blitz (skip round intro)
+  useEffect(() => {
+    if (active?.phase === 'round-intro' && active?.gameType === 'blitz') {
+      handleStartRound();
+    }
+  }, [active?.phase, active?.gameType, handleStartRound]);
+
   // Render based on phase
   switch (active.phase) {
     case 'round-intro':
+      if (active.gameType === 'blitz') {
+        return (
+          <div className="min-h-full flex items-center justify-center bg-gray-50">
+            <p className="text-gray-500">Starten...</p>
+          </div>
+        );
+      }
       return (
         <>
           {motivationOverlay}
@@ -292,6 +311,34 @@ export function QuizScreen() {
               <ConfirmDialog
                 title="Sessie stoppen?"
                 description="Weet je zeker dat je wilt stoppen? Je voortgang van deze ronde gaat verloren."
+                confirmLabel="Stoppen"
+                onConfirm={handleQuit}
+                onCancel={() => setShowQuitConfirm(false)}
+              />
+            )}
+          </>
+        );
+      }
+
+      // Blitz game: renders its own full-screen component
+      if (active.gameType === 'blitz') {
+        return (
+          <>
+            {motivationOverlay}
+            <BlitzGame
+              key="blitz"
+              words={active.allWords}
+              sourceLanguage={active.sourceLanguage}
+              childName={active.childName}
+              childId={active.childId}
+              listId={active.listId}
+              onComplete={handleBlitzComplete}
+              onQuit={() => setShowQuitConfirm(true)}
+            />
+            {showQuitConfirm && (
+              <ConfirmDialog
+                title="Sessie stoppen?"
+                description="Weet je zeker dat je wilt stoppen? Je voortgang gaat verloren."
                 confirmLabel="Stoppen"
                 onConfirm={handleQuit}
                 onCancel={() => setShowQuitConfirm(false)}

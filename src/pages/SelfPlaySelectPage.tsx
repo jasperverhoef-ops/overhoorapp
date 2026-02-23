@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Grid2X2, Keyboard, ArrowLeft, Shuffle, Zap, LayoutGrid, PencilLine } from 'lucide-react';
+import { Grid2X2, Keyboard, ArrowLeft, Zap, LayoutGrid } from 'lucide-react';
 import { db } from '../db';
 import { useAppStore } from '../stores/useAppStore';
 import { LANGUAGE_FLAGS } from '../models/types';
@@ -80,21 +80,6 @@ export function SelfPlaySelectPage() {
           </button>
 
           <button
-            onClick={() => navigate(`/play/${listId}/self/scramble`)}
-            className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-purple-100 hover:border-purple-400 hover:shadow-lg active:bg-purple-50 transition-all touch-manipulation text-left"
-          >
-            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Shuffle className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-gray-900">Scramble</h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Zet de door elkaar gehusselde letters in de juiste volgorde
-              </p>
-            </div>
-          </button>
-
-          <button
             onClick={() => navigate(`/play/${listId}/self/blitz`)}
             className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-orange-100 hover:border-orange-400 hover:shadow-lg active:bg-orange-50 transition-all touch-manipulation text-left"
           >
@@ -104,7 +89,7 @@ export function SelfPlaySelectPage() {
             <div>
               <h3 className="text-base font-bold text-gray-900">Blitz</h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Multiple choice met een afteltimer — snel denken!
+                Zoveel mogelijk woorden goed in 30 seconden!
               </p>
             </div>
           </button>
@@ -124,20 +109,6 @@ export function SelfPlaySelectPage() {
             </div>
           </button>
 
-          <button
-            onClick={() => navigate(`/play/${listId}/self/letters`)}
-            className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-teal-100 hover:border-teal-400 hover:shadow-lg active:bg-teal-50 transition-all touch-manipulation text-left"
-          >
-            <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <PencilLine className="w-6 h-6 text-teal-600" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-gray-900">Letterbygger</h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Vul letter voor letter het woord in
-              </p>
-            </div>
-          </button>
         </div>
       </div>
     </div>

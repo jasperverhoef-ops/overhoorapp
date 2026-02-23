@@ -71,14 +71,6 @@ export function App() {
           }
         />
         <Route
-          path="/play/:listId/self/scramble"
-          element={
-            <ProtectedRoute>
-              <QuizScreen />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/play/:listId/self/blitz"
           element={
             <ProtectedRoute>
@@ -88,14 +80,6 @@ export function App() {
         />
         <Route
           path="/play/:listId/self/memory"
-          element={
-            <ProtectedRoute>
-              <QuizScreen />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/play/:listId/self/letters"
           element={
             <ProtectedRoute>
               <QuizScreen />

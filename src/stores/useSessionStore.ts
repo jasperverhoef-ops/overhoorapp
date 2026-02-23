@@ -85,7 +85,7 @@ interface SessionState {
   abandonSession: () => void;
 }
 
-const MC_GAME_TYPES = new Set(['multiple-choice', 'blitz']);
+const MC_GAME_TYPES = new Set(['multiple-choice']);
 
 function needsChoices(active: ActiveSession): boolean {
   if (active.mode !== 'self') return false;
@@ -418,17 +418,32 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         });
       }
     } else {
-      set({
-        active: {
-          ...active,
-          answersThisRound: newAnswers,
-          answeredCorrectly: newCorrect,
-          roundResults: [...active.roundResults, roundResult],
-          phase: 'round-summary',
-          currentWord: null,
-          currentChoices: [],
-        },
-      });
+      // Memory and Blitz are single-round games — go straight to session-complete
+      if (active.gameType === 'memory' || active.gameType === 'blitz') {
+        set({
+          active: {
+            ...active,
+            answersThisRound: newAnswers,
+            answeredCorrectly: newCorrect,
+            roundResults: [...active.roundResults, roundResult],
+            phase: 'session-complete',
+            currentWord: null,
+            currentChoices: [],
+          },
+        });
+      } else {
+        set({
+          active: {
+            ...active,
+            answersThisRound: newAnswers,
+            answeredCorrectly: newCorrect,
+            roundResults: [...active.roundResults, roundResult],
+            phase: 'round-summary',
+            currentWord: null,
+            currentChoices: [],
+          },
+        });
+      }
     }
   },
 
