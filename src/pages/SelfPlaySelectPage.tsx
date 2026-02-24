@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Grid2X2, Keyboard, ArrowLeft, Zap, LayoutGrid } from 'lucide-react';
+import { Grid2X2, Keyboard, ArrowLeft, Zap, LayoutGrid, Car } from 'lucide-react';
 import { db } from '../db';
 import { useAppStore } from '../stores/useAppStore';
 import { LANGUAGE_FLAGS } from '../models/types';
@@ -129,6 +129,24 @@ export function SelfPlaySelectPage() {
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
                 Zoveel mogelijk woorden goed in 30 seconden!
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate(`/play/${listId}/self/race`)}
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-cyan-100 hover:border-cyan-400 hover:shadow-lg active:bg-cyan-50 transition-all touch-manipulation text-left"
+          >
+            <div className="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Car className="w-6 h-6 text-cyan-600" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-gray-900">Race</h3>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Medium</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Bestuur je auto naar het juiste antwoord!
               </p>
             </div>
           </button>

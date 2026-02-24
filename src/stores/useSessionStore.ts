@@ -494,8 +494,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         });
       }
     } else {
-      // Memory, Blitz, and Hangman are single-round games — go straight to session-complete
-      if (active.gameType === 'memory' || active.gameType === 'blitz' || active.gameType === 'hangman') {
+      // Memory, Blitz, Hangman, and Race are single-round games — go straight to session-complete
+      if (active.gameType === 'memory' || active.gameType === 'blitz' || active.gameType === 'hangman' || active.gameType === 'race') {
         set({
           active: {
             ...active,

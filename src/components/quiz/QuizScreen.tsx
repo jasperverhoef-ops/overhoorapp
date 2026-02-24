@@ -15,6 +15,7 @@ import { ParentWordCard } from './ParentWordCard';
 import { MemoryGame } from './MemoryGame';
 import { BlitzGame } from './BlitzGame';
 import { HangmanGame } from './HangmanGame';
+import { RaceGame } from './RaceGame';
 import { ShowingAnswer } from './ShowingAnswer';
 import { RoundSummary } from './RoundSummary';
 import { BetweenRounds } from './BetweenRounds';
@@ -58,6 +59,7 @@ export function QuizScreen() {
     if (path.includes('/blitz')) return 'blitz';
     if (path.includes('/memory')) return 'memory';
     if (path.includes('/hangman')) return 'hangman';
+    if (path.includes('/race')) return 'race';
     return 'multiple-choice';
   })();
 
@@ -230,7 +232,7 @@ export function QuizScreen() {
 
   // Auto-start blitz (skip round intro) — must be before any conditional returns
   useEffect(() => {
-    if (active?.phase === 'round-intro' && active?.gameType === 'blitz') {
+    if (active?.phase === 'round-intro' && (active?.gameType === 'blitz' || active?.gameType === 'race')) {
       handleStartRound();
     }
   }, [active?.phase, active?.gameType, handleStartRound]);
@@ -271,7 +273,7 @@ export function QuizScreen() {
   // Render based on phase
   switch (active.phase) {
     case 'round-intro':
-      if (active.gameType === 'blitz') {
+      if (active.gameType === 'blitz' || active.gameType === 'race') {
         return (
           <div className="min-h-full flex items-center justify-center bg-gray-50">
             <p className="text-gray-500">Starten...</p>
@@ -329,6 +331,34 @@ export function QuizScreen() {
             {motivationOverlay}
             <BlitzGame
               key="blitz"
+              words={active.allWords}
+              sourceLanguage={active.sourceLanguage}
+              childName={active.childName}
+              childId={active.childId}
+              listId={active.listId}
+              onComplete={handleBlitzComplete}
+              onQuit={() => setShowQuitConfirm(true)}
+            />
+            {showQuitConfirm && (
+              <ConfirmDialog
+                title="Sessie stoppen?"
+                description="Weet je zeker dat je wilt stoppen? Je voortgang gaat verloren."
+                confirmLabel="Stoppen"
+                onConfirm={handleQuit}
+                onCancel={() => setShowQuitConfirm(false)}
+              />
+            )}
+          </>
+        );
+      }
+
+      // Race game: renders its own full-screen component
+      if (active.gameType === 'race') {
+        return (
+          <>
+            {motivationOverlay}
+            <RaceGame
+              key="race"
               words={active.allWords}
               sourceLanguage={active.sourceLanguage}
               childName={active.childName}

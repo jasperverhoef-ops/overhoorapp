@@ -3,7 +3,7 @@ export type AnswerResult = 'correct' | 'wrong';
 export type SessionStatus = 'in-progress' | 'completed' | 'abandoned';
 export type Direction = 'source-to-dutch' | 'dutch-to-source';
 export type TrainingMode = 'self' | 'parent';
-export type GameType = 'multiple-choice' | 'typing' | 'blitz' | 'memory' | 'hangman';
+export type GameType = 'multiple-choice' | 'typing' | 'blitz' | 'memory' | 'hangman' | 'race';
 export type HintLevel = 0 | 1 | 2 | 3;
 
 export interface Child {
