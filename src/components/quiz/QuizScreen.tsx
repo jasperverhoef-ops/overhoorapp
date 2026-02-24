@@ -228,6 +228,13 @@ export function QuizScreen() {
     </div>
   ) : null;
 
+  // Auto-start blitz (skip round intro) — must be before any conditional returns
+  useEffect(() => {
+    if (active?.phase === 'round-intro' && active?.gameType === 'blitz') {
+      handleStartRound();
+    }
+  }, [active?.phase, active?.gameType, handleStartRound]);
+
   // Loading state
   if (!list || !words || !child) {
     return (
@@ -260,13 +267,6 @@ export function QuizScreen() {
       </div>
     );
   }
-
-  // Auto-start blitz (skip round intro)
-  useEffect(() => {
-    if (active?.phase === 'round-intro' && active?.gameType === 'blitz') {
-      handleStartRound();
-    }
-  }, [active?.phase, active?.gameType, handleStartRound]);
 
   // Render based on phase
   switch (active.phase) {
