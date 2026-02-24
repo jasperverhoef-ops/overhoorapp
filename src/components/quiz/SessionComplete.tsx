@@ -2,9 +2,14 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo } from 'react';
 import { Trophy, Star, Clock, Target } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Button } from '../ui/Button';
 import { formatTime } from '../../lib/formatTime';
 import { getHardestWords } from '../../lib/roundEngine';
+import { calculateSessionXp, calculateTotalXp } from '../../lib/xpSystem';
+import { XpEarned } from './XpEarned';
+import { db } from '../../db';
+import { useAppStore } from '../../stores/useAppStore';
 import type { RoundResult, Word } from '../../models/types';
 import { useTimerStore } from '../../stores/useTimerStore';
 
@@ -19,6 +24,7 @@ interface SessionCompleteProps {
 export function SessionComplete({ childName, listName, rounds, allWords, onFinish }: SessionCompleteProps) {
   const navigate = useNavigate();
   const elapsedMs = useTimerStore((s) => s.elapsedMs);
+  const selectedChildId = useAppStore((s) => s.selectedChildId);
 
   const isPerfect = rounds.length <= 2 &&
     rounds.every((r) => r.directCorrect === r.totalWords);
@@ -32,37 +38,70 @@ export function SessionComplete({ childName, listName, rounds, allWords, onFinis
   const totalWords = rounds.reduce((sum, r) => sum + r.totalWords, 0);
   const scorePercentage = totalWords > 0 ? (totalCorrect / totalWords) * 100 : 0;
 
+  // Calculate XP for this session
+  const sessionXp = useMemo(() => {
+    // Build a fake session object to calculate XP
+    const fakeSession = {
+      id: '',
+      childId: '',
+      listId: '',
+      status: 'completed' as const,
+      startedAt: 0,
+      totalElapsedMs: elapsedMs,
+      rounds,
+    };
+    return calculateSessionXp(fakeSession);
+  }, [rounds, elapsedMs]);
+
+  // Get previous sessions to calculate total XP before this session
+  const previousSessions = useLiveQuery(
+    () =>
+      selectedChildId
+        ? db.sessions
+            .where('childId')
+            .equals(selectedChildId)
+            .and((s) => s.status === 'completed')
+            .toArray()
+        : [],
+    [selectedChildId]
+  );
+
+  const totalXpBefore = useMemo(
+    () => calculateTotalXp(previousSessions ?? []),
+    [previousSessions]
+  );
+
   // Get encouragement message based on performance (memoized to avoid re-randomizing on re-render)
   const encouragementMessage = useMemo(() => {
     const pick = (messages: string[]) => messages[Math.floor(Math.random() * messages.length)];
 
     if (isPerfect) {
       return pick([
-        'Ongelooflijk! Alles goed in één keer! 🌟',
-        'Perfecte score! Je bent een woordenmeester! 🏆',
-        'Wauw! Geen enkele fout gemaakt! 💯',
-        'Fantastisch! Alles perfect onthouden! ⭐',
+        'Ongelooflijk! Alles goed in \u00e9\u00e9n keer! \u{1F31F}',
+        'Perfecte score! Je bent een woordenmeester! \u{1F3C6}',
+        'Wauw! Geen enkele fout gemaakt! \u{1F4AF}',
+        'Fantastisch! Alles perfect onthouden! \u2B50',
       ]);
     } else if (scorePercentage >= 90) {
       return pick([
-        'Super gedaan! Bijna alles goed! 🎉',
-        'Uitstekend werk! Je hebt het bijna helemaal gekend! 👏',
-        'Geweldig! Je zit er bijna! 🌟',
-        'Top prestatie! Nog even oefenen en het is perfect! 💪',
+        'Super gedaan! Bijna alles goed! \u{1F389}',
+        'Uitstekend werk! Je hebt het bijna helemaal gekend! \u{1F44F}',
+        'Geweldig! Je zit er bijna! \u{1F31F}',
+        'Top prestatie! Nog even oefenen en het is perfect! \u{1F4AA}',
       ]);
     } else if (scorePercentage >= 75) {
       return pick([
-        'Goed gedaan! Je maakt mooie vooruitgang! 👍',
-        'Prima werk! Blijf zo doorgaan! 📚',
-        'Lekker bezig! Je leert ze steeds beter! 💡',
-        'Mooi resultaat! Je bent op de goede weg! ⭐',
+        'Goed gedaan! Je maakt mooie vooruitgang! \u{1F44D}',
+        'Prima werk! Blijf zo doorgaan! \u{1F4DA}',
+        'Lekker bezig! Je leert ze steeds beter! \u{1F4A1}',
+        'Mooi resultaat! Je bent op de goede weg! \u2B50',
       ]);
     } else {
       return pick([
-        'Goed geprobeerd! Oefening baart kunst! 💪',
-        'Prima begin! Blijf oefenen, het wordt makkelijker! 📖',
-        'Je kunt het! Probeer het morgen nog eens! 🌱',
-        'Goed bezig! Elke sessie leer je meer! 🎯',
+        'Goed geprobeerd! Oefening baart kunst! \u{1F4AA}',
+        'Prima begin! Blijf oefenen, het wordt makkelijker! \u{1F4D6}',
+        'Je kunt het! Probeer het morgen nog eens! \u{1F331}',
+        'Goed bezig! Elke sessie leer je meer! \u{1F3AF}',
       ]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -131,9 +170,18 @@ export function SessionComplete({ childName, listName, rounds, allWords, onFinis
         </p>
 
         {/* Encouragement message */}
-        <p className="text-lg font-medium text-gray-700 mb-6 text-center px-4">
+        <p className="text-lg font-medium text-gray-700 mb-4 text-center px-4">
           {encouragementMessage}
         </p>
+
+        {/* XP Earned */}
+        <div className="mb-4">
+          <XpEarned
+            xpEarned={sessionXp}
+            totalXpBefore={totalXpBefore}
+            totalXpAfter={totalXpBefore + sessionXp}
+          />
+        </div>
 
         {/* Total time */}
         <div className="flex items-center gap-2 bg-white rounded-xl px-5 py-3 shadow-sm border border-gray-100 mb-6">

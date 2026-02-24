@@ -10,7 +10,9 @@ import { EmptyState } from '../ui/EmptyState';
 import { formatTime } from '../../lib/formatTime';
 import { LANGUAGE_FLAGS } from '../../models/types';
 import { BadgeDisplay } from './BadgeDisplay';
+import { XpDisplay } from './XpDisplay';
 import { calculateBadges } from '../../models/badges';
+import { calculateTotalXp } from '../../lib/xpSystem';
 
 export function Dashboard() {
   const selectedChildId = useAppStore((s) => s.selectedChildId);
@@ -66,8 +68,9 @@ export function Dashboard() {
   // Find list names for sessions
   const listMap = new Map((lists ?? []).map((l) => [l.id, l]));
 
-  // Calculate badges
+  // Calculate badges and XP
   const badges = calculateBadges(sessions ?? [], lists ?? []);
+  const totalXp = calculateTotalXp(sessions ?? []);
 
   // Weekly practice overview (last 7 days)
   const dayNames = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
@@ -190,6 +193,9 @@ export function Dashboard() {
                 <p className="text-xs text-gray-500">Gem. score</p>
               </Card>
             </div>
+
+            {/* XP Level */}
+            <XpDisplay totalXp={totalXp} />
 
             {/* Badges */}
             <div>
