@@ -10,7 +10,7 @@ interface ShowingAnswerProps {
   onDismiss: () => void;
 }
 
-export function ShowingAnswer({ word, sourceLanguage, round, willRetry = false, onDismiss }: ShowingAnswerProps) {
+export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: ShowingAnswerProps) {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
   const isSourceToDutch = word.direction === 'source-to-dutch';
@@ -70,19 +70,8 @@ export function ShowingAnswer({ word, sourceLanguage, round, willRetry = false, 
 
         {/* Tip */}
         <p className="text-sm text-gray-400 mt-6 text-center">
-          {willRetry
-            ? 'Onthoud het goed \u2014 je krijgt het woord direct nog een keer!'
-            : 'Probeer het woord te onthouden!'}
+          Probeer het woord te onthouden!
         </p>
-
-        {/* Retry badge */}
-        {willRetry && (
-          <div className="mt-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-sm font-semibold text-blue-700 text-center">
-              {'\u{1F504}'} Direct opnieuw oefenen
-            </p>
-          </div>
-        )}
 
         {/* Progress bar */}
         <div className="w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden mt-4">
@@ -96,7 +85,7 @@ export function ShowingAnswer({ word, sourceLanguage, round, willRetry = false, 
           onClick={onDismiss}
           className="mt-4 text-sm text-gray-500 font-medium hover:text-gray-700 touch-manipulation"
         >
-          {willRetry ? 'Probeer opnieuw' : 'Volgende woord'}
+          Volgende woord
         </button>
       </div>
     </div>

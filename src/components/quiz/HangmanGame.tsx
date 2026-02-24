@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { TimerDisplay } from './TimerDisplay';
@@ -74,14 +74,17 @@ export function HangmanGame({
   const [wrongCount, setWrongCount] = useState(0);
   const [results, setResults] = useState<{ wordId: string; direction: Direction; result: AnswerResult }[]>([]);
   const [showResult, setShowResult] = useState<'won' | 'lost' | null>(null);
-  const [flash, setFlash] = useState<'good' | 'wrong' | null>(null);
+  const [gameOver, setGameOver] = useState(false);
+  // Track which letter was just guessed for per-key feedback
+  const [lastGuess, setLastGuess] = useState<{ letter: string; correct: boolean } | null>(null);
+  const lastGuessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentWord = wordList[currentIndex];
-  if (!currentWord) return null;
+  if (!currentWord && !gameOver) return null;
 
   const isSourceToDutch = direction === 'source-to-dutch';
-  const displayWord = isSourceToDutch ? currentWord.sourceWord : currentWord.dutchWord;
-  const answer = isSourceToDutch ? currentWord.dutchWord : currentWord.sourceWord;
+  const displayWord = currentWord ? (isSourceToDutch ? currentWord.sourceWord : currentWord.dutchWord) : '';
+  const answer = currentWord ? (isSourceToDutch ? currentWord.dutchWord : currentWord.sourceWord) : '';
   const displayFlag = isSourceToDutch ? LANGUAGE_FLAGS[sourceLanguage] : '\u{1F1F3}\u{1F1F1}';
   const directionLabel = isSourceToDutch
     ? `${LANGUAGE_LABELS[sourceLanguage]} \u2192 NL`
@@ -104,14 +107,18 @@ export function HangmanGame({
   );
 
   const handleGuess = useCallback((letter: string) => {
-    if (guessedLetters.has(letter) || showResult) return;
+    if (guessedLetters.has(letter) || showResult || gameOver) return;
 
     const newGuessed = new Set(guessedLetters);
     newGuessed.add(letter);
     setGuessedLetters(newGuessed);
 
+    // Clear previous guess highlight
+    if (lastGuessTimerRef.current) clearTimeout(lastGuessTimerRef.current);
+
     if (answerLettersNormalized.has(letter)) {
-      setFlash('good');
+      setLastGuess({ letter, correct: true });
+      if (navigator.vibrate) navigator.vibrate(50);
       // Check if word is now complete
       const nowComplete = answerChars.every(char => {
         if (char === ' ' || char === '-' || char === '\'') return true;
@@ -122,15 +129,28 @@ export function HangmanGame({
         setResults(prev => [...prev, { wordId: currentWord.id, direction, result: 'correct' }]);
       }
     } else {
-      setFlash('wrong');
+      setLastGuess({ letter, correct: false });
+      if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
       const newWrong = wrongCount + 1;
       setWrongCount(newWrong);
       if (newWrong >= MAX_WRONG) {
+        // Game over: mark current word and all remaining words as wrong
         setShowResult('lost');
-        setResults(prev => [...prev, { wordId: currentWord.id, direction, result: 'wrong' }]);
+        const remaining: { wordId: string; direction: Direction; result: AnswerResult }[] = [];
+        // current word
+        remaining.push({ wordId: currentWord.id, direction, result: 'wrong' });
+        // all words after current
+        for (let i = currentIndex + 1; i < wordList.length; i++) {
+          remaining.push({ wordId: wordList[i].id, direction, result: 'wrong' });
+        }
+        setResults(prev => [...prev, ...remaining]);
+        setGameOver(true);
       }
     }
-  }, [guessedLetters, showResult, answerLettersNormalized, answerChars, wrongCount, currentWord.id, direction]);
+
+    // Clear the per-key highlight after 500ms
+    lastGuessTimerRef.current = setTimeout(() => setLastGuess(null), 500);
+  }, [guessedLetters, showResult, gameOver, answerLettersNormalized, answerChars, wrongCount, currentWord?.id, direction, currentIndex, wordList]);
 
   // Keyboard listener
   useEffect(() => {
@@ -144,14 +164,6 @@ export function HangmanGame({
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleGuess]);
 
-  // Clear flash
-  useEffect(() => {
-    if (flash) {
-      const t = setTimeout(() => setFlash(null), 400);
-      return () => clearTimeout(t);
-    }
-  }, [flash]);
-
   const handleNext = useCallback(() => {
     const nextIndex = currentIndex + 1;
     if (nextIndex >= wordList.length) {
@@ -159,17 +171,15 @@ export function HangmanGame({
     } else {
       setCurrentIndex(nextIndex);
       setGuessedLetters(new Set());
-      setWrongCount(0);
+      // Don't reset wrongCount — gallows persist across the whole test
       setShowResult(null);
+      setLastGuess(null);
     }
   }, [currentIndex, wordList.length, results, onComplete]);
 
-  // Haptic feedback
-  useEffect(() => {
-    if (flash && navigator.vibrate) {
-      navigator.vibrate(flash === 'good' ? 50 : [50, 30, 50]);
-    }
-  }, [flash]);
+  const handleGameOverFinish = useCallback(() => {
+    onComplete(results);
+  }, [results, onComplete]);
 
   const roundColors = {
     1: { badge: 'bg-blue-100 text-blue-700', progress: 'bg-blue-500', label: 'Ronde 1' },
@@ -177,8 +187,43 @@ export function HangmanGame({
   };
   const colors = roundColors[round];
 
+  // Game over screen — all lives lost
+  if (gameOver) {
+    const correctCount = results.filter(r => r.result === 'correct').length;
+    return (
+      <div className="min-h-full flex flex-col bg-white">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors.badge}`}>
+            {colors.label}
+          </span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          {/* Final hangman drawing */}
+          <svg width="200" height="170" viewBox="0 0 200 170" className="text-red-400 mb-4">
+            <line x1="40" y1="160" x2="160" y2="160" stroke="currentColor" strokeWidth="3" />
+            <line x1="80" y1="160" x2="80" y2="20" stroke="currentColor" strokeWidth="3" />
+            <line x1="78" y1="20" x2="152" y2="20" stroke="currentColor" strokeWidth="3" />
+            <line x1="150" y1="20" x2="150" y2="40" stroke="currentColor" strokeWidth="3" />
+            {HANGMAN_PARTS}
+          </svg>
+
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Game Over!</h2>
+          <p className="text-gray-600 mb-1">
+            Het laatste woord was: <strong className="text-red-600">{answer}</strong>
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            {correctCount} van {wordList.length} woorden geraden
+          </p>
+          <Button variant="primary" size="lg" onClick={handleGameOverFinish}>
+            Klaar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`min-h-full flex flex-col bg-white ${flash === 'good' ? 'flash-good' : flash === 'wrong' ? 'flash-wrong' : ''}`}>
+    <div className="min-h-full flex flex-col bg-white">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <div className="flex-1">
@@ -202,7 +247,9 @@ export function HangmanGame({
       <div className="px-4 pt-3">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-sm text-gray-500">Woord {currentIndex + 1} van {wordList.length}</span>
-          <span className="text-sm text-red-500 font-medium">{MAX_WRONG - wrongCount} levens</span>
+          <span className={`text-sm font-medium ${wrongCount >= MAX_WRONG - 2 ? 'text-red-500' : 'text-gray-500'}`}>
+            {MAX_WRONG - wrongCount} {MAX_WRONG - wrongCount === 1 ? 'leven' : 'levens'}
+          </span>
         </div>
         <ProgressBar
           current={currentIndex}
@@ -252,21 +299,12 @@ export function HangmanGame({
         ))}
       </div>
 
-      {/* Result message */}
-      {showResult && (
-        <div className={`mx-4 px-4 py-3 rounded-xl text-center ${
-          showResult === 'won'
-            ? 'bg-green-50 border border-green-200'
-            : 'bg-red-50 border border-red-200'
-        }`}>
-          <p className={`font-bold ${showResult === 'won' ? 'text-green-700' : 'text-red-700'}`}>
-            {showResult === 'won' ? 'Goed geraden!' : 'Helaas!'}
-          </p>
-          {showResult === 'lost' && (
-            <p className="text-sm text-red-600 mt-1">Het antwoord was: <strong>{answer}</strong></p>
-          )}
+      {/* Result message (per word — only for won, since lost = game over) */}
+      {showResult === 'won' && (
+        <div className="mx-4 px-4 py-3 rounded-xl text-center bg-green-50 border border-green-200">
+          <p className="font-bold text-green-700">Goed geraden!</p>
           <Button
-            variant={showResult === 'won' ? 'primary' : 'secondary'}
+            variant="primary"
             size="md"
             className="mt-3"
             onClick={handleNext}
@@ -284,16 +322,17 @@ export function HangmanGame({
               {row.map((letter) => {
                 const isGuessed = guessedLetters.has(letter);
                 const isCorrectLetter = answerLettersNormalized.has(letter);
+                const isJustGuessed = lastGuess?.letter === letter;
                 return (
                   <button
                     key={letter}
                     onClick={() => handleGuess(letter)}
                     disabled={isGuessed}
-                    className={`w-[9.2%] max-w-[36px] aspect-square rounded-lg font-bold text-sm uppercase transition-all touch-manipulation ${
+                    className={`w-[9.2%] max-w-[36px] aspect-square rounded-lg font-bold text-sm uppercase transition-all duration-200 touch-manipulation ${
                       isGuessed
                         ? isCorrectLetter
-                          ? 'bg-green-200 text-green-800 border border-green-300'
-                          : 'bg-gray-200 text-gray-400 border border-gray-300'
+                          ? `bg-green-200 text-green-800 border border-green-300 ${isJustGuessed ? 'scale-110 ring-2 ring-green-400' : ''}`
+                          : `bg-gray-200 text-gray-400 border border-gray-300 ${isJustGuessed ? 'scale-95 ring-2 ring-red-300' : ''}`
                         : 'bg-gray-100 text-gray-800 border border-gray-300 hover:bg-blue-100 hover:border-blue-400 active:bg-blue-200'
                     }`}
                   >
