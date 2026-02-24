@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { X, Volume2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { TimerDisplay } from './TimerDisplay';
 import { ProgressBar } from '../ui/ProgressBar';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
+import { useAppStore } from '../../stores/useAppStore';
+import { speakWord } from '../../lib/tts';
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 
@@ -78,6 +80,7 @@ export function HangmanGame({
   // Track which letter was just guessed for per-key feedback
   const [lastGuess, setLastGuess] = useState<{ letter: string; correct: boolean } | null>(null);
   const lastGuessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
 
   const currentWord = wordList[currentIndex];
   if (!currentWord && !gameOver) return null;
@@ -86,6 +89,7 @@ export function HangmanGame({
   const displayWord = currentWord ? (isSourceToDutch ? currentWord.sourceWord : currentWord.dutchWord) : '';
   const answer = currentWord ? (isSourceToDutch ? currentWord.dutchWord : currentWord.sourceWord) : '';
   const displayFlag = isSourceToDutch ? LANGUAGE_FLAGS[sourceLanguage] : '\u{1F1F3}\u{1F1F1}';
+  const displayLanguage = isSourceToDutch ? sourceLanguage : 'nl' as const;
   const directionLabel = isSourceToDutch
     ? `${LANGUAGE_LABELS[sourceLanguage]} \u2192 NL`
     : `NL \u2192 ${LANGUAGE_LABELS[sourceLanguage]}`;
@@ -151,6 +155,13 @@ export function HangmanGame({
     // Clear the per-key highlight after 500ms
     lastGuessTimerRef.current = setTimeout(() => setLastGuess(null), 500);
   }, [guessedLetters, showResult, gameOver, answerLettersNormalized, answerChars, wrongCount, currentWord?.id, direction, currentIndex, wordList]);
+
+  // Auto-speak word when it appears (TTS enabled)
+  useEffect(() => {
+    if (ttsEnabled && displayWord) {
+      speakWord(displayWord, displayLanguage);
+    }
+  }, [ttsEnabled, currentIndex, displayWord, displayLanguage]);
 
   // Keyboard listener
   useEffect(() => {
@@ -262,7 +273,18 @@ export function HangmanGame({
       {/* Hint word */}
       <div className="text-center pt-4 px-4">
         <span className="text-2xl mb-1">{displayFlag}</span>
-        <p className="text-lg font-semibold text-gray-700 mt-1">{displayWord}</p>
+        <div className="flex items-center justify-center gap-1 mt-1">
+          <p className="text-lg font-semibold text-gray-700">{displayWord}</p>
+          {ttsEnabled && (
+            <button
+              onClick={() => speakWord(displayWord, displayLanguage)}
+              className="p-1 rounded-full hover:bg-gray-100 active:bg-gray-200 text-blue-500 touch-manipulation"
+              aria-label="Voorlezen"
+            >
+              <Volume2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
         <p className="text-xs text-gray-400 mt-0.5">Raad de vertaling!</p>
       </div>
 

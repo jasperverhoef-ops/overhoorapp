@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Lightbulb, X, Flame, Trophy, Send } from 'lucide-react';
+import { Lightbulb, X, Flame, Trophy, Send, Volume2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { TimerDisplay } from './TimerDisplay';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { getHint, MAX_HINT_LEVEL } from '../../lib/hintSystem';
+import { useAppStore } from '../../stores/useAppStore';
+import { speakWord } from '../../lib/tts';
 import type { RoundWord, Language, MasteryItem, ChoiceOption, HintLevel, GameType } from '../../models/types';
 
 interface SelfTrainWordCardProps {
@@ -88,19 +90,27 @@ export function SelfTrainWordCard({
   const [typingResult, setTypingResult] = useState<'correct' | 'wrong' | 'nearly-correct' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const colors = roundColors[round];
-
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
 
   // Determine what to show
   const isSourceToDutch = word.direction === 'source-to-dutch';
   const displayWord = isSourceToDutch ? word.word.sourceWord : word.word.dutchWord;
   const correctAnswer = isSourceToDutch ? word.word.dutchWord : word.word.sourceWord;
   const displayFlag = isSourceToDutch ? LANGUAGE_FLAGS[sourceLanguage] : '\u{1F1F3}\u{1F1F1}';
+  const displayLanguage = isSourceToDutch ? sourceLanguage : 'nl' as const;
   const directionLabel = isSourceToDutch
     ? `${LANGUAGE_LABELS[sourceLanguage]} \u2192 NL`
     : `NL \u2192 ${LANGUAGE_LABELS[sourceLanguage]}`;
 
   // Get current hint
   const currentHint = getHint(word.word, word.direction, hintLevel, sourceLanguage);
+
+  // Auto-speak word when it appears (TTS enabled)
+  useEffect(() => {
+    if (ttsEnabled) {
+      speakWord(displayWord, displayLanguage);
+    }
+  }, [ttsEnabled, word.word.id, displayWord, displayLanguage]);
 
   // Auto-focus input in typing mode
   useEffect(() => {
@@ -334,9 +344,20 @@ export function SelfTrainWordCard({
       {/* Word display */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-6">
         <span className="text-4xl mb-3">{displayFlag}</span>
-        <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 text-center leading-tight mb-3">
-          {displayWord}
-        </h2>
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 text-center leading-tight">
+            {displayWord}
+          </h2>
+          {ttsEnabled && (
+            <button
+              onClick={() => speakWord(displayWord, displayLanguage)}
+              className="p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 text-blue-500 touch-manipulation"
+              aria-label="Voorlezen"
+            >
+              <Volume2 className="w-5 h-5" />
+            </button>
+          )}
+        </div>
         {round === 3 && (
           <p className="text-sm text-gray-400">({directionLabel})</p>
         )}

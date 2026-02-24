@@ -3,6 +3,8 @@ import { Zap, X, Trophy, Check, X as XIcon } from 'lucide-react';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { generateChoices } from '../../lib/multipleChoice';
 import { shuffle } from '../../lib/shuffleUtils';
+import { useAppStore } from '../../stores/useAppStore';
+import { speakWord } from '../../lib/tts';
 import type { Word, Language, Direction, AnswerResult, ChoiceOption } from '../../models/types';
 
 const BLITZ_DURATION = 30;
@@ -136,15 +138,25 @@ export function BlitzGame({
     }
   }, [gameOver, score, savedHighscore, childId, listId]);
 
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
+
   const current = wordQueue[currentIndex];
   const isSourceToDutch = current?.direction === 'source-to-dutch';
   const displayWord = current
     ? isSourceToDutch ? current.word.sourceWord : current.word.dutchWord
     : '';
   const displayFlag = isSourceToDutch ? LANGUAGE_FLAGS[sourceLanguage] : '\u{1F1F3}\u{1F1F1}';
+  const displayLanguage = isSourceToDutch ? sourceLanguage : 'nl' as const;
   const directionLabel = isSourceToDutch
     ? `${LANGUAGE_LABELS[sourceLanguage]} \u2192 NL`
     : `NL \u2192 ${LANGUAGE_LABELS[sourceLanguage]}`;
+
+  // Auto-speak word when it changes (TTS enabled)
+  useEffect(() => {
+    if (ttsEnabled && displayWord && !gameOver) {
+      speakWord(displayWord, displayLanguage);
+    }
+  }, [ttsEnabled, currentIndex, displayWord, displayLanguage, gameOver]);
 
   // MC handler
   const handleChoice = useCallback((choice: ChoiceOption, index: number) => {

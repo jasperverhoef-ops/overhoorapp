@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowLeft, Volume2, VolumeX, ChevronDown, Home } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, ChevronDown, Home, Speech } from 'lucide-react';
 import { db } from '../../db';
 import { useAppStore } from '../../stores/useAppStore';
 import { useSessionStore } from '../../stores/useSessionStore';
@@ -23,6 +23,8 @@ export function Header({ title, showBack, right }: HeaderProps) {
   const clearChild = useAppStore((s) => s.clearChild);
   const soundEnabled = useAppStore((s) => s.soundEnabled);
   const toggleSound = useAppStore((s) => s.toggleSound);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
+  const toggleTts = useAppStore((s) => s.toggleTts);
   const activeSession = useSessionStore((s) => s.active);
   const abandonSession = useSessionStore((s) => s.abandonSession);
   const [showChildPicker, setShowChildPicker] = useState(false);
@@ -136,6 +138,14 @@ export function Header({ title, showBack, right }: HeaderProps) {
           <h1 className="text-lg font-bold text-gray-900 truncate flex-1">{title}</h1>
 
           <div className="flex items-center gap-1 ml-2">
+            <button
+              onClick={toggleTts}
+              className={`p-2 rounded-lg hover:bg-gray-100 touch-manipulation ${ttsEnabled ? 'text-blue-500' : 'text-gray-300'}`}
+              aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
+              title={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
+            >
+              <Speech className="w-4 h-4" />
+            </button>
             <button
               onClick={toggleSound}
               className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 touch-manipulation"

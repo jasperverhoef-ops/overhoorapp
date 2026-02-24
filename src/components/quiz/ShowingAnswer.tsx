@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { RoundWord, Language } from '../../models/types';
 import { LANGUAGE_LABELS } from '../../models/types';
+import { useAppStore } from '../../stores/useAppStore';
+import { speakWord } from '../../lib/tts';
 
 interface ShowingAnswerProps {
   word: RoundWord;
@@ -13,9 +15,11 @@ interface ShowingAnswerProps {
 export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: ShowingAnswerProps) {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
   const isSourceToDutch = word.direction === 'source-to-dutch';
   const displayWord = isSourceToDutch ? word.word.sourceWord : word.word.dutchWord;
   const correctAnswer = isSourceToDutch ? word.word.dutchWord : word.word.sourceWord;
+  const answerLanguage = isSourceToDutch ? 'nl' as const : sourceLanguage;
   const directionLabel = isSourceToDutch
     ? `${LANGUAGE_LABELS[sourceLanguage]} \u2192 NL`
     : `NL \u2192 ${LANGUAGE_LABELS[sourceLanguage]}`;
@@ -24,6 +28,13 @@ export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: Showin
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
   }, []);
+
+  // Speak the correct answer aloud
+  useEffect(() => {
+    if (ttsEnabled) {
+      speakWord(correctAnswer, answerLanguage);
+    }
+  }, [ttsEnabled, correctAnswer, answerLanguage]);
 
   useEffect(() => {
     const start = Date.now();
