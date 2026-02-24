@@ -19,6 +19,7 @@ interface SelfTrainWordCardProps {
   streak: number;
   dailyHighStreak: number;
   gameType: GameType;
+  isRetrying?: boolean;
   onGood: () => void;
   onWrong: () => void;
   onAdvanceHint: () => void;
@@ -75,6 +76,7 @@ export function SelfTrainWordCard({
   streak,
   dailyHighStreak,
   gameType,
+  isRetrying = false,
   onGood,
   onWrong,
   onAdvanceHint,
@@ -319,6 +321,15 @@ export function SelfTrainWordCard({
           </div>
         )}
       </div>
+
+      {/* Retry banner */}
+      {isRetrying && (
+        <div className="mx-4 mt-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-xl">
+          <p className="text-sm font-semibold text-blue-700 text-center">
+            Probeer het nog een keer!
+          </p>
+        </div>
+      )}
 
       {/* Word display */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-6">

@@ -117,6 +117,9 @@ export interface ActiveSession {
   roundResults: RoundResult[];
   hintUsed: boolean;
   currentStreak: number;
+
+  // Retry: when a word is answered wrong, retry it once immediately
+  isRetrying: boolean;
 }
 
 export const LANGUAGE_LABELS: Record<Language, string> = {

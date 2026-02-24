@@ -14,6 +14,7 @@ import { SelfTrainWordCard } from './SelfTrainWordCard';
 import { ParentWordCard } from './ParentWordCard';
 import { MemoryGame } from './MemoryGame';
 import { BlitzGame } from './BlitzGame';
+import { HangmanGame } from './HangmanGame';
 import { ShowingAnswer } from './ShowingAnswer';
 import { RoundSummary } from './RoundSummary';
 import { BetweenRounds } from './BetweenRounds';
@@ -56,6 +57,7 @@ export function QuizScreen() {
     if (path.includes('/typing')) return 'typing';
     if (path.includes('/blitz')) return 'blitz';
     if (path.includes('/memory')) return 'memory';
+    if (path.includes('/hangman')) return 'hangman';
     return 'multiple-choice';
   })();
 
@@ -348,6 +350,35 @@ export function QuizScreen() {
         );
       }
 
+      // Hangman game: renders its own full-screen component
+      if (active.gameType === 'hangman' && active.currentRound !== 3) {
+        const hangmanDirection = active.currentRound === 1 ? 'source-to-dutch' : 'dutch-to-source';
+        return (
+          <>
+            {motivationOverlay}
+            <HangmanGame
+              key={`hangman-${active.currentRound}`}
+              words={active.allWords}
+              sourceLanguage={active.sourceLanguage}
+              childName={active.childName}
+              direction={hangmanDirection as Direction}
+              round={active.currentRound as 1 | 2}
+              onComplete={handleMemoryComplete}
+              onQuit={() => setShowQuitConfirm(true)}
+            />
+            {showQuitConfirm && (
+              <ConfirmDialog
+                title="Sessie stoppen?"
+                description="Weet je zeker dat je wilt stoppen? Je voortgang van deze ronde gaat verloren."
+                confirmLabel="Stoppen"
+                onConfirm={handleQuit}
+                onCancel={() => setShowQuitConfirm(false)}
+              />
+            )}
+          </>
+        );
+      }
+
       if (!active.currentWord) return null;
 
       const progress =
@@ -375,8 +406,8 @@ export function QuizScreen() {
       // is presented again in Round 3 (prevents stale selectedIndex state)
       const wordKey = `${active.currentWord.word.id}-${active.answersThisRound.length}`;
 
-      // For memory game in round 3, fall back to multiple-choice
-      const effectiveGameType = active.gameType === 'memory' ? 'multiple-choice' : (active.gameType || 'multiple-choice');
+      // For memory/hangman game in round 3, fall back to multiple-choice
+      const effectiveGameType = (active.gameType === 'memory' || active.gameType === 'hangman') ? 'multiple-choice' : (active.gameType || 'multiple-choice');
 
       const wordCardElement = active.mode === 'self' ? (
         <SelfTrainWordCard
@@ -392,6 +423,7 @@ export function QuizScreen() {
           streak={active.currentStreak}
           dailyHighStreak={dailyHighStreak}
           gameType={effectiveGameType}
+          isRetrying={active.isRetrying}
           onGood={handleGood}
           onWrong={handleWrong}
           onAdvanceHint={handleAdvanceHint}
@@ -442,6 +474,7 @@ export function QuizScreen() {
             word={active.currentWord}
             sourceLanguage={active.sourceLanguage}
             round={active.currentRound}
+            willRetry={active.currentRound !== 3 && !active.isRetrying}
             onDismiss={handleDismissAnswer}
           />
         </>

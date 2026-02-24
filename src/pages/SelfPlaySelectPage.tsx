@@ -109,6 +109,21 @@ export function SelfPlaySelectPage() {
             </div>
           </button>
 
+          <button
+            onClick={() => navigate(`/play/${listId}/self/hangman`)}
+            className="w-full flex items-center gap-4 bg-white rounded-2xl p-5 border-2 border-violet-100 hover:border-violet-400 hover:shadow-lg active:bg-violet-50 transition-all touch-manipulation text-left"
+          >
+            <div className="w-12 h-12 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">&#x1F3B2;</span>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-gray-900">Galgje</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Raad letter voor letter het juiste woord!
+              </p>
+            </div>
+          </button>
+
         </div>
       </div>
     </div>

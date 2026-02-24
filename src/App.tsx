@@ -87,6 +87,14 @@ export function App() {
           }
         />
         <Route
+          path="/play/:listId/self/hangman"
+          element={
+            <ProtectedRoute>
+              <QuizScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/play/:listId/parent"
           element={
             <ProtectedRoute>

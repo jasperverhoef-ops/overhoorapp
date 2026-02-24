@@ -6,10 +6,11 @@ interface ShowingAnswerProps {
   word: RoundWord;
   sourceLanguage: Language;
   round: 1 | 2 | 3;
+  willRetry?: boolean;
   onDismiss: () => void;
 }
 
-export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: ShowingAnswerProps) {
+export function ShowingAnswer({ word, sourceLanguage, round, willRetry = false, onDismiss }: ShowingAnswerProps) {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
   const isSourceToDutch = word.direction === 'source-to-dutch';
@@ -44,7 +45,7 @@ export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: Showin
       {/* Same style top bar as the word cards */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <span className="text-sm font-medium text-gray-600">
-          Ronde {round} · {directionLabel}
+          Ronde {round} \u00B7 {directionLabel}
         </span>
       </div>
 
@@ -69,8 +70,19 @@ export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: Showin
 
         {/* Tip */}
         <p className="text-sm text-gray-400 mt-6 text-center">
-          Probeer het woord te onthouden!
+          {willRetry
+            ? 'Onthoud het goed \u2014 je krijgt het woord direct nog een keer!'
+            : 'Probeer het woord te onthouden!'}
         </p>
+
+        {/* Retry badge */}
+        {willRetry && (
+          <div className="mt-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-xl">
+            <p className="text-sm font-semibold text-blue-700 text-center">
+              {'\u{1F504}'} Direct opnieuw oefenen
+            </p>
+          </div>
+        )}
 
         {/* Progress bar */}
         <div className="w-48 h-1.5 bg-gray-200 rounded-full overflow-hidden mt-4">
@@ -84,7 +96,7 @@ export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: Showin
           onClick={onDismiss}
           className="mt-4 text-sm text-gray-500 font-medium hover:text-gray-700 touch-manipulation"
         >
-          Volgende woord
+          {willRetry ? 'Probeer opnieuw' : 'Volgende woord'}
         </button>
       </div>
     </div>

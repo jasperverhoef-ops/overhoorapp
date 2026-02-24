@@ -96,9 +96,6 @@ export function HangmanGame({
     return '_';
   });
 
-  const isWordComplete = maskedWord.every(c => c !== '_');
-  const isGameOver = wrongCount >= MAX_WRONG;
-
   // Get all unique normalized letters in the answer
   const answerLettersNormalized = new Set(
     answerChars

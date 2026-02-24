@@ -89,8 +89,8 @@ const MC_GAME_TYPES = new Set(['multiple-choice']);
 
 function needsChoices(active: ActiveSession): boolean {
   if (active.mode !== 'self') return false;
-  // Memory mode falls back to MC in round 3
-  if (active.gameType === 'memory' && active.currentRound === 3) return true;
+  // Memory/Hangman mode falls back to MC in round 3
+  if ((active.gameType === 'memory' || active.gameType === 'hangman') && active.currentRound === 3) return true;
   return MC_GAME_TYPES.has(active.gameType ?? 'multiple-choice');
 }
 
@@ -145,6 +145,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         roundResults: [],
         hintUsed: false,
         currentStreak: 0,
+        isRetrying: false,
       },
     });
   },
@@ -241,6 +242,80 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       const newCorrect = new Set(active.answeredCorrectly);
       const newWordQueue = [...active.wordQueue];
 
+      if (active.isRetrying) {
+        // Retry attempt: don't re-queue, just record the answer
+        if (result === 'correct') {
+          newCorrect.add(wordId);
+        }
+        // Whether correct or wrong, advance to next word (no infinite loop)
+        const nextIndex = active.currentWordIndex + 1;
+
+        if (result === 'wrong') {
+          // Show correct answer briefly, then auto-advance (dismissAnswer will advance)
+          set({
+            active: {
+              ...active,
+              answersThisRound: newAnswers,
+              answeredCorrectly: newCorrect,
+              showingCorrectAnswer: true,
+              hintUsed: false,
+              hintLevel: 0,
+              currentStreak: newStreak,
+              isRetrying: true, // keep retrying flag so dismissAnswer knows to advance
+              phase: 'showing-answer',
+            },
+          });
+          return;
+        }
+
+        // Retry was correct! Advance to next word
+        if (nextIndex >= newWordQueue.length) {
+          const directCorrect = countDirectCorrect(newAnswers);
+          const roundResult: RoundResult = {
+            roundNumber: active.currentRound as 1 | 2,
+            roundType: active.currentRound === 1 ? 'source-to-dutch' : 'dutch-to-source',
+            directCorrect,
+            totalWords: active.allWords.length,
+            answers: newAnswers,
+          };
+          useTimerStore.getState().pause();
+          if (active.currentRound === 2) {
+            const allRoundResults = [...active.roundResults, roundResult];
+            const round1Answers = allRoundResults[0]?.answers ?? [];
+            const round2Answers = roundResult.answers;
+            const difficultWords = getDifficultWords(round1Answers, round2Answers, active.allWords);
+            if (difficultWords.length === 0) {
+              set({ active: { ...active, answersThisRound: newAnswers, answeredCorrectly: newCorrect, roundResults: allRoundResults, phase: 'session-complete', currentWord: null, currentChoices: [], currentStreak: newStreak, isRetrying: false } });
+            } else {
+              const masteryQueue = initializeMasteryQueue(difficultWords);
+              set({ active: { ...active, answersThisRound: newAnswers, answeredCorrectly: newCorrect, roundResults: allRoundResults, masteryQueue, phase: 'between-rounds', currentWord: null, currentChoices: [], currentStreak: newStreak, isRetrying: false } });
+            }
+          } else {
+            set({ active: { ...active, answersThisRound: newAnswers, answeredCorrectly: newCorrect, roundResults: [...active.roundResults, { ...roundResult }], phase: 'round-summary', currentWord: null, currentChoices: [], currentStreak: newStreak, isRetrying: false } });
+          }
+        } else {
+          const nextChoices = buildChoicesForWord({ ...active, wordQueue: newWordQueue }, nextIndex);
+          set({
+            active: {
+              ...active,
+              answersThisRound: newAnswers,
+              answeredCorrectly: newCorrect,
+              wordQueue: newWordQueue,
+              currentWordIndex: nextIndex,
+              currentWord: newWordQueue[nextIndex],
+              showingCorrectAnswer: false,
+              hintUsed: false,
+              hintLevel: 0,
+              currentChoices: nextChoices,
+              currentStreak: newStreak,
+              isRetrying: false,
+              phase: 'word-display',
+            },
+          });
+        }
+        return;
+      }
+
       if (result === 'correct') {
         newCorrect.add(wordId);
       } else {
@@ -251,7 +326,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       const nextIndex = active.currentWordIndex + 1;
 
       if (result === 'wrong') {
-        // Show correct answer first
+        // Show correct answer first, then retry the word immediately
         set({
           active: {
             ...active,
@@ -262,6 +337,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             hintUsed: false,
             hintLevel: 0,
             currentStreak: newStreak,
+            isRetrying: false,
             phase: 'showing-answer',
           },
         });
@@ -418,8 +494,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         });
       }
     } else {
-      // Memory and Blitz are single-round games — go straight to session-complete
-      if (active.gameType === 'memory' || active.gameType === 'blitz') {
+      // Memory, Blitz, and Hangman are single-round games — go straight to session-complete
+      if (active.gameType === 'memory' || active.gameType === 'blitz' || active.gameType === 'hangman') {
         set({
           active: {
             ...active,
@@ -504,7 +580,25 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         },
       });
     } else {
-      // Round 1/2: advance to next word
+      // Round 1/2: retry or advance
+      if (!active.isRetrying && active.currentWord) {
+        // First wrong answer: re-present the same word for immediate retry
+        const retryChoices = buildChoicesForWord(active, active.currentWordIndex);
+        set({
+          active: {
+            ...active,
+            showingCorrectAnswer: false,
+            hintUsed: false,
+            hintLevel: 0,
+            currentChoices: retryChoices,
+            isRetrying: true,
+            phase: 'word-display',
+          },
+        });
+        return;
+      }
+
+      // After retry (correct or wrong again): advance to next word
       const nextIndex = active.currentWordIndex + 1;
       if (nextIndex >= active.wordQueue.length) {
         // Round complete
@@ -534,6 +628,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
                 currentWord: null,
                 showingCorrectAnswer: false,
                 currentChoices: [],
+                isRetrying: false,
               },
             });
           } else {
@@ -547,6 +642,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
                 currentWord: null,
                 showingCorrectAnswer: false,
                 currentChoices: [],
+                isRetrying: false,
               },
             });
           }
@@ -559,6 +655,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
               currentWord: null,
               showingCorrectAnswer: false,
               currentChoices: [],
+              isRetrying: false,
             },
           });
         }
@@ -573,6 +670,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
             hintUsed: false,
             hintLevel: 0,
             currentChoices: nextChoices,
+            isRetrying: false,
             phase: 'word-display',
           },
         });
@@ -607,6 +705,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           hintLevel: 0,
           currentChoices: firstChoices,
           currentStreak: 0,
+          isRetrying: false,
         },
       });
     } else if (nextRound === 3) {
@@ -627,6 +726,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           lastWordId: null,
           currentChoices: nextChoices,
           currentStreak: 0,
+          isRetrying: false,
         },
       });
     }
