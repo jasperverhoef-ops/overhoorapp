@@ -90,17 +90,22 @@ export function BlitzGame({
   const [swipeResult, setSwipeResult] = useState<'correct' | 'wrong' | null>(null);
   const [flyDirection, setFlyDirection] = useState<'left' | 'right' | null>(null);
   const startXRef = useRef(0);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const startYRef = useRef(0);
+  const isHorizontalRef = useRef<boolean | null>(null);
 
   const resultsRef = useRef<{ wordId: string; direction: Direction; result: AnswerResult }[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const processingRef = useRef(false);
   const soundEnabled = useAppStore((s) => s.soundEnabled);
   const ttsEnabled = useAppStore((s) => s.ttsEnabled);
 
   const savedHighscore = useMemo(() => getBlitzHighscore(childId, listId), [childId, listId]);
   const [isNewHighscore, setIsNewHighscore] = useState(false);
 
-  const SWIPE_THRESHOLD = 60;
+  const SWIPE_THRESHOLD = 40;
+
+  // Keep processingRef in sync
+  processingRef.current = isProcessing;
 
   // Timer — pauses when paused
   useEffect(() => {
@@ -144,8 +149,9 @@ export function BlitzGame({
   }, [ttsEnabled, currentIndex, displayWord, displayLanguage, gameOver]);
 
   const processAnswer = useCallback((answeredTrue: boolean) => {
-    if (isProcessing || gameOver || !current) return;
+    if (processingRef.current || gameOver || !current) return;
     setIsProcessing(true);
+    processingRef.current = true;
 
     const isCorrect = answeredTrue === current.isCorrectPair;
     const result: AnswerResult = isCorrect ? 'correct' : 'wrong';
@@ -176,45 +182,60 @@ export function BlitzGame({
       setFlyDirection(null);
       setDragX(0);
       setIsProcessing(false);
+      processingRef.current = false;
       setCurrentIndex(prev => prev + 1);
     }, 300);
-  }, [isProcessing, gameOver, current, soundEnabled]);
+  }, [gameOver, current, soundEnabled]);
 
-  // Touch handlers
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (isProcessing || gameOver) return;
-    startXRef.current = e.clientX;
+  // Touch-based swipe on the entire swipe area (much better on mobile)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (processingRef.current || gameOver || paused) return;
+    const touch = e.touches[0];
+    startXRef.current = touch.clientX;
+    startYRef.current = touch.clientY;
+    isHorizontalRef.current = null;
     setIsDragging(true);
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [isProcessing, gameOver]);
+  }, [gameOver, paused]);
 
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDragging || isProcessing) return;
-    const dx = e.clientX - startXRef.current;
-    setDragX(dx);
-  }, [isDragging, isProcessing]);
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging || processingRef.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - startXRef.current;
+    const dy = touch.clientY - startYRef.current;
 
-  const handlePointerUp = useCallback(() => {
-    if (!isDragging || isProcessing) return;
+    // Determine if this is a horizontal swipe (lock direction after 10px)
+    if (isHorizontalRef.current === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+      isHorizontalRef.current = Math.abs(dx) > Math.abs(dy);
+    }
+
+    if (isHorizontalRef.current) {
+      e.preventDefault(); // Prevent scroll when swiping horizontally
+      setDragX(dx);
+    }
+  }, [isDragging]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging || processingRef.current) return;
     setIsDragging(false);
+    isHorizontalRef.current = null;
 
     if (Math.abs(dragX) >= SWIPE_THRESHOLD) {
       processAnswer(dragX > 0); // right = goed, left = fout
     } else {
       setDragX(0);
     }
-  }, [isDragging, isProcessing, dragX, processAnswer]);
+  }, [isDragging, dragX, processAnswer]);
 
   // Keyboard
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (gameOver || isProcessing) return;
+      if (gameOver || processingRef.current) return;
       if (e.key === 'ArrowRight') processAnswer(true);
       else if (e.key === 'ArrowLeft') processAnswer(false);
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [gameOver, isProcessing, processAnswer]);
+  }, [gameOver, processAnswer]);
 
   const handleFinish = useCallback(() => {
     onComplete(resultsRef.current);
@@ -225,8 +246,8 @@ export function BlitzGame({
 
   // Swipe visual indicators
   const swipeOpacity = Math.min(Math.abs(dragX) / SWIPE_THRESHOLD, 1);
-  const isSwipingRight = dragX > 20;
-  const isSwipingLeft = dragX < -20;
+  const isSwipingRight = dragX > 15;
+  const isSwipingLeft = dragX < -15;
 
   // Card rotation based on drag
   const cardRotation = Math.max(-15, Math.min(15, dragX / 15));
@@ -272,7 +293,7 @@ export function BlitzGame({
   }
 
   return (
-    <div className="min-h-full flex flex-col bg-white select-none overflow-hidden">
+    <div className="min-h-full flex flex-col bg-white select-none overflow-hidden relative">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
         <div className="flex-1">
@@ -328,86 +349,93 @@ export function BlitzGame({
         </div>
       </div>
 
-      {/* Swipe hint labels */}
-      <div className="flex items-center justify-between px-6 pt-3">
-        <div className={`flex items-center gap-1 transition-opacity ${isSwipingLeft ? 'opacity-100' : 'opacity-30'}`}>
-          <XIcon className="w-4 h-4 text-red-500" />
-          <span className="text-sm font-bold text-red-500">Fout</span>
+      {/* Full swipe area — covers card + hint labels */}
+      <div
+        className="flex-1 flex flex-col"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        style={{ touchAction: 'pan-y' }}
+      >
+        {/* Swipe hint labels */}
+        <div className="flex items-center justify-between px-6 pt-3">
+          <div className={`flex items-center gap-1 transition-all duration-150 ${isSwipingLeft ? 'opacity-100 scale-110' : 'opacity-30'}`}>
+            <XIcon className="w-5 h-5 text-red-500" />
+            <span className="text-base font-bold text-red-500">Fout</span>
+          </div>
+          <p className="text-xs text-gray-400">
+            {isDragging ? '' : '← Swipe →'}
+          </p>
+          <div className={`flex items-center gap-1 transition-all duration-150 ${isSwipingRight ? 'opacity-100 scale-110' : 'opacity-30'}`}>
+            <span className="text-base font-bold text-green-500">Goed</span>
+            <Check className="w-5 h-5 text-green-500" />
+          </div>
         </div>
-        <p className="text-xs text-gray-400">Swipe of tap</p>
-        <div className={`flex items-center gap-1 transition-opacity ${isSwipingRight ? 'opacity-100' : 'opacity-30'}`}>
-          <span className="text-sm font-bold text-green-500">Goed</span>
-          <Check className="w-4 h-4 text-green-500" />
-        </div>
-      </div>
 
-      {/* Card area */}
-      <div className="flex-1 flex items-center justify-center px-6 py-4">
-        <div
-          ref={cardRef}
-          className={`relative w-full max-w-sm rounded-2xl shadow-xl border-2 p-6 cursor-grab active:cursor-grabbing touch-manipulation transition-shadow ${
-            swipeResult === 'correct'
-              ? 'border-green-400 bg-green-50 shadow-green-200'
-              : swipeResult === 'wrong'
-                ? 'border-red-400 bg-red-50 shadow-red-200'
-                : isSwipingRight
-                  ? 'border-green-300 bg-green-50/50'
-                  : isSwipingLeft
-                    ? 'border-red-300 bg-red-50/50'
-                    : 'border-gray-200 bg-white'
-          }`}
-          style={{
-            transform: flyTransform,
-            transition: flyDirection ? 'transform 0.3s ease-out' : isDragging ? 'none' : 'transform 0.2s ease-out',
-          }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-        >
-          {/* Left/Right edge indicators */}
-          {isSwipingLeft && (
-            <div className="absolute top-4 left-4 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center" style={{ opacity: swipeOpacity }}>
-              <XIcon className="w-6 h-6 text-white" />
-            </div>
-          )}
-          {isSwipingRight && (
-            <div className="absolute top-4 right-4 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center" style={{ opacity: swipeOpacity }}>
-              <Check className="w-6 h-6 text-white" />
-            </div>
-          )}
+        {/* Card area */}
+        <div className="flex-1 flex items-center justify-center px-6 py-4">
+          <div
+            className={`relative w-full max-w-sm rounded-2xl shadow-xl border-2 p-6 transition-shadow ${
+              swipeResult === 'correct'
+                ? 'border-green-400 bg-green-50 shadow-green-200'
+                : swipeResult === 'wrong'
+                  ? 'border-red-400 bg-red-50 shadow-red-200'
+                  : isSwipingRight
+                    ? 'border-green-300 bg-green-50/50'
+                    : isSwipingLeft
+                      ? 'border-red-300 bg-red-50/50'
+                      : 'border-gray-200 bg-white'
+            }`}
+            style={{
+              transform: flyTransform,
+              transition: flyDirection ? 'transform 0.3s ease-out' : isDragging ? 'none' : 'transform 0.2s ease-out',
+            }}
+          >
+            {/* Left/Right edge indicators */}
+            {isSwipingLeft && (
+              <div className="absolute top-4 left-4 w-12 h-12 bg-red-500 rounded-full flex items-center justify-center" style={{ opacity: swipeOpacity }}>
+                <XIcon className="w-7 h-7 text-white" />
+              </div>
+            )}
+            {isSwipingRight && (
+              <div className="absolute top-4 right-4 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center" style={{ opacity: swipeOpacity }}>
+                <Check className="w-7 h-7 text-white" />
+              </div>
+            )}
 
-          <div className="flex flex-col items-center text-center pt-4">
-            <p className="text-sm text-gray-400 mb-3 font-medium">Klopt deze vertaling?</p>
-            <span className="text-3xl mb-2">{displayFlag}</span>
-            <h2 className="text-3xl font-bold text-gray-900 leading-tight mb-4">
-              {displayWord}
-            </h2>
-            <div className="w-12 h-px bg-gray-200 mb-4" />
-            <p className="text-2xl font-semibold text-purple-700">
-              = {current?.shownTranslation}
-            </p>
+            <div className="flex flex-col items-center text-center pt-4">
+              <p className="text-sm text-gray-400 mb-3 font-medium">Klopt deze vertaling?</p>
+              <span className="text-3xl mb-2">{displayFlag}</span>
+              <h2 className="text-3xl font-bold text-gray-900 leading-tight mb-4">
+                {displayWord}
+              </h2>
+              <div className="w-12 h-px bg-gray-200 mb-4" />
+              <p className="text-2xl font-semibold text-purple-700">
+                = {current?.shownTranslation}
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Tap buttons (alternative to swiping) */}
-      <div className="px-4 pb-6 safe-area-bottom">
-        <div className="grid grid-cols-2 gap-3">
+      {/* Small fallback tap buttons */}
+      <div className="px-4 pb-4 safe-area-bottom">
+        <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => processAnswer(false)}
             disabled={isProcessing || paused}
-            className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl font-bold text-base transition-all touch-manipulation border-2 bg-red-50 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-400 active:bg-red-200 disabled:opacity-60"
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg font-semibold text-sm transition-all touch-manipulation border bg-red-50 border-red-200 text-red-600 active:bg-red-200 disabled:opacity-60"
           >
-            <XIcon className="w-5 h-5" />
+            <XIcon className="w-4 h-4" />
             Fout
           </button>
           <button
             onClick={() => processAnswer(true)}
             disabled={isProcessing || paused}
-            className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl font-bold text-base transition-all touch-manipulation border-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-400 active:bg-green-200 disabled:opacity-60"
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg font-semibold text-sm transition-all touch-manipulation border bg-green-50 border-green-200 text-green-600 active:bg-green-200 disabled:opacity-60"
           >
-            <Check className="w-5 h-5" />
+            <Check className="w-4 h-4" />
             Goed
           </button>
         </div>
