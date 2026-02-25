@@ -217,7 +217,11 @@ export function QuizScreen() {
 
   const handleBlitzComplete = useCallback(async (results: { wordId: string; direction: Direction; result: AnswerResult }[]) => {
     answerMemoryBatch(results);
-    await completeSession();
+    try {
+      await completeSession();
+    } catch (error) {
+      console.error('Failed to complete session:', error);
+    }
     navigate('/play');
   }, [answerMemoryBatch, completeSession, navigate]);
 

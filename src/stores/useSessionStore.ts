@@ -494,8 +494,8 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         });
       }
     } else {
-      // Memory, Blitz, Hangman, and Race are single-round games — go straight to session-complete
-      if (active.gameType === 'memory' || active.gameType === 'blitz' || active.gameType === 'hangman' || active.gameType === 'race') {
+      // Blitz and Race are single-round games — go straight to session-complete
+      if (active.gameType === 'blitz' || active.gameType === 'race') {
         set({
           active: {
             ...active,
@@ -508,6 +508,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
           },
         });
       } else {
+        // Memory, Hangman, and standard games go to round-summary → round 2
         set({
           active: {
             ...active,
@@ -738,17 +739,21 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
     const elapsed = useTimerStore.getState().getElapsed();
 
-    await db.sessions.add({
-      id: active.sessionId,
-      childId: active.childId,
-      listId: active.listId,
-      status: 'completed',
-      startedAt: Date.now() - elapsed,
-      completedAt: Date.now(),
-      totalElapsedMs: elapsed,
-      rounds: active.roundResults,
-      mode: active.mode,
-    });
+    try {
+      await db.sessions.add({
+        id: active.sessionId,
+        childId: active.childId,
+        listId: active.listId,
+        status: 'completed',
+        startedAt: Date.now() - elapsed,
+        completedAt: Date.now(),
+        totalElapsedMs: elapsed,
+        rounds: active.roundResults,
+        mode: active.mode,
+      });
+    } catch (error) {
+      console.error('Failed to save session:', error);
+    }
 
     useTimerStore.getState().reset();
     set({ active: null });
