@@ -89,6 +89,7 @@ export function BlitzGame({
   const [isDragging, setIsDragging] = useState(false);
   const [swipeResult, setSwipeResult] = useState<'correct' | 'wrong' | null>(null);
   const [flyDirection, setFlyDirection] = useState<'left' | 'right' | null>(null);
+  const [showTimeBonus, setShowTimeBonus] = useState(false);
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const isHorizontalRef = useRef<boolean | null>(null);
@@ -165,7 +166,10 @@ export function BlitzGame({
     if (isCorrect) {
       setScore(prev => prev + 1);
       setCombo(prev => prev + 1);
+      setTimeLeft(prev => prev + 1);
       setSwipeResult('correct');
+      setShowTimeBonus(true);
+      setTimeout(() => setShowTimeBonus(false), 800);
       if (soundEnabled) playCorrectSound();
       if (navigator.vibrate) navigator.vibrate(50);
     } else {
@@ -241,7 +245,7 @@ export function BlitzGame({
     onComplete(resultsRef.current);
   }, [onComplete]);
 
-  const timerPct = (timeLeft / BLITZ_DURATION) * 100;
+  const timerPct = Math.min((timeLeft / BLITZ_DURATION) * 100, 100);
   const isUrgent = timeLeft <= 8;
 
   // Swipe visual indicators
@@ -294,6 +298,13 @@ export function BlitzGame({
 
   return (
     <div className="min-h-full flex flex-col bg-white select-none overflow-hidden relative">
+      <style>{`
+        @keyframes timeBonusPop {
+          0% { opacity: 1; transform: translateY(0) scale(1); }
+          50% { opacity: 1; transform: translateY(-12px) scale(1.3); }
+          100% { opacity: 0; transform: translateY(-24px) scale(1); }
+        }
+      `}</style>
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
         <div className="flex-1">
@@ -333,6 +344,16 @@ export function BlitzGame({
             <span className={`text-xl font-bold tabular-nums ${isUrgent ? 'text-red-600' : 'text-orange-600'}`}>
               {timeLeft}s
             </span>
+            {showTimeBonus && (
+              <span
+                className="text-sm font-bold text-green-500 animate-bounce"
+                style={{
+                  animation: 'timeBonusPop 0.8s ease-out forwards',
+                }}
+              >
+                +1s
+              </span>
+            )}
           </div>
           {savedHighscore > 0 && (
             <div className="flex items-center gap-1">
