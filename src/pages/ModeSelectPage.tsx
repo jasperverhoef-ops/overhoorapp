@@ -33,7 +33,7 @@ export function ModeSelectPage() {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="flex items-center h-14 px-4">
           <button
-            onClick={() => navigate('/play')}
+            onClick={() => navigate('/lists')}
             className="mr-2 p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 active:bg-gray-200 touch-manipulation"
             aria-label="Terug"
           >

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Lightbulb, X, Flame, Trophy, Send, Volume2 } from 'lucide-react';
+import { Lightbulb, X, Zap, Trophy, Send, Volume2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { TimerDisplay } from './TimerDisplay';
@@ -316,9 +316,9 @@ export function SelfTrainWordCard({
         />
         {/* Streak indicator */}
         {showStreak && (
-          <div className="flex items-center justify-center gap-2 mt-3 py-2 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200">
-            <Flame className="w-5 h-5 text-orange-500" />
-            <span className="text-base font-bold text-orange-600">{streak} streak!</span>
+          <div className="flex items-center justify-center gap-2 mt-3 py-2 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-200">
+            <Zap className="w-5 h-5 text-yellow-500" />
+            <span className="text-base font-bold text-yellow-600">{streak} streak!</span>
             {isNewRecord && (
               <span className="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-semibold">NIEUW RECORD!</span>
             )}

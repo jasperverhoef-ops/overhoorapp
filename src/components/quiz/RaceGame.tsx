@@ -8,10 +8,11 @@ import { playCorrectSound, playWrongSound, playPerfectSound } from '../../lib/so
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 
 const MAX_LIVES = 3;
-const BASE_SPEED = 2.5;
-const NITRO_SPEED = 6;
-const NITRO_DURATION = 400;
-const GATE_HIT_ZONE = 78;
+const BASE_SPEED = 0.8;
+const MAX_STREAK_BONUS = 0.6;
+const NITRO_SPEED = 2.2;
+const NITRO_DURATION = 350;
+const GATE_HIT_ZONE = 80;
 
 interface RaceWord {
   word: Word;
@@ -165,12 +166,12 @@ export function RaceGame({
     gateProcessedRef.current = false;
   }, [currentIndex, gameOver, raceFinished, current]);
 
-  // Speed scales with streak
+  // Speed scales gently with streak
   useEffect(() => {
     if (nitro) {
       speedRef.current = NITRO_SPEED;
     } else {
-      speedRef.current = BASE_SPEED + Math.min(streak, 8) * 0.25;
+      speedRef.current = BASE_SPEED + Math.min(streak, 10) * (MAX_STREAK_BONUS / 10);
     }
   }, [streak, nitro]);
 
@@ -265,7 +266,7 @@ export function RaceGame({
       const speed = speedRef.current;
       const movement = speed * (dt / 16.67);
 
-      setRoadOffset((prev) => (prev + movement * 3) % 40);
+      setRoadOffset((prev) => (prev + movement * 4) % 40);
       setElapsedMs(Date.now() - startTimeRef.current);
 
       // Move gate down

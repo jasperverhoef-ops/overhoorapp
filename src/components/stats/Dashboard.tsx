@@ -169,7 +169,7 @@ export function Dashboard() {
             description={`${child.name} heeft nog geen sessies voltooid`}
             action={
               <button
-                onClick={() => navigate('/play')}
+                onClick={() => navigate('/lists')}
                 className="text-blue-600 font-medium"
               >
                 Start een sessie
@@ -198,14 +198,9 @@ export function Dashboard() {
             <XpDisplay totalXp={totalXp} />
 
             {/* Badges */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                Badges
-              </h3>
-              <Card>
-                <BadgeDisplay badges={badges} />
-              </Card>
-            </div>
+            <Card>
+              <BadgeDisplay badges={badges} />
+            </Card>
 
             {/* Weekly overview */}
             <div>
