@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Zap, X, Trophy, Check, X as XIcon } from 'lucide-react';
-import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
+import { LANGUAGE_FLAGS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 import { useAppStore } from '../../stores/useAppStore';
 import { speakWord } from '../../lib/tts';
@@ -43,7 +43,6 @@ interface BlitzGameProps {
 export function BlitzGame({
   words,
   sourceLanguage,
-  childName,
   childId,
   listId,
   onComplete,

@@ -17,6 +17,7 @@ export function XpEarned({ xpEarned, totalXpBefore, totalXpAfter }: XpEarnedProp
   const nextLevel = getNextLevel(totalXpAfter);
 
   useEffect(() => {
+    let rafId = 0;
     const duration = 800;
     const start = Date.now();
     const frame = () => {
@@ -24,9 +25,10 @@ export function XpEarned({ xpEarned, totalXpBefore, totalXpAfter }: XpEarnedProp
       const pct = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - pct, 3);
       setAnimatedXp(Math.round(xpEarned * eased));
-      if (pct < 1) requestAnimationFrame(frame);
+      if (pct < 1) rafId = requestAnimationFrame(frame);
     };
-    requestAnimationFrame(frame);
+    rafId = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(rafId);
   }, [xpEarned]);
 
   return (
