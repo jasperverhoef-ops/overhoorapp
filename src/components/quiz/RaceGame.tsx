@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Flag, X, Heart, Trophy, Zap } from 'lucide-react';
+import { Flag, X, Heart, Trophy, Zap, Pause, Play } from 'lucide-react';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 import { useAppStore } from '../../stores/useAppStore';
@@ -103,6 +103,8 @@ export function RaceGame({
   const [roadOffset, setRoadOffset] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [flashResult, setFlashResult] = useState<'correct' | 'wrong' | null>(null);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
 
   // Refs for values accessed inside requestAnimationFrame
   const laneRef = useRef(lane);
@@ -130,6 +132,7 @@ export function RaceGame({
   raceFinishedRef.current = raceFinished;
   showFinishLineRef.current = showFinishLine;
   streakRef.current = streak;
+  pausedRef.current = paused;
 
   useEffect(() => {
     return useAppStore.subscribe((s) => {
@@ -279,6 +282,11 @@ export function RaceGame({
     const tick = (timestamp: number) => {
       if (!running) return;
       if (gameOverRef.current || raceFinishedRef.current) return;
+      if (pausedRef.current) {
+        lastTimeRef.current = 0;
+        animFrameRef.current = requestAnimationFrame(tick);
+        return;
+      }
 
       if (!lastTimeRef.current) lastTimeRef.current = timestamp;
       const delta = timestamp - lastTimeRef.current;
@@ -513,6 +521,13 @@ export function RaceGame({
             <span className="text-xs text-cyan-600">/{totalWords}</span>
           </div>
           <button
+            onClick={() => setPaused(p => !p)}
+            className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
+            aria-label={paused ? 'Hervat' : 'Pauze'}
+          >
+            {paused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
+          </button>
+          <button
             onClick={onQuit}
             className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
             aria-label="Stop"
@@ -704,6 +719,21 @@ export function RaceGame({
           <span className={`text-xs font-semibold mt-0.5 ${lane === 'right' ? 'text-cyan-400' : 'text-slate-600'}`}>Rechts</span>
         </button>
       </div>
+
+      {/* Pause overlay */}
+      {paused && (
+        <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+          <div className="text-5xl mb-4">⏸️</div>
+          <h2 className="text-2xl font-bold text-white mb-2">Gepauzeerd</h2>
+          <p className="text-slate-400 mb-6">Neem even pauze!</p>
+          <button
+            onClick={() => setPaused(false)}
+            className="px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-lg active:scale-95 transition-transform touch-manipulation"
+          >
+            Verder racen
+          </button>
+        </div>
+      )}
 
       <style>{`
         @keyframes shake {

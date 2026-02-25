@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Zap, X, Trophy, Check, X as XIcon } from 'lucide-react';
+import { Zap, X, Trophy, Check, X as XIcon, Pause, Play } from 'lucide-react';
 import { LANGUAGE_FLAGS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 import { useAppStore } from '../../stores/useAppStore';
@@ -7,7 +7,7 @@ import { speakWord } from '../../lib/tts';
 import { playCorrectSound, playWrongSound } from '../../lib/sounds';
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 
-const BLITZ_DURATION = 25; // seconds
+const BLITZ_DURATION = 40; // seconds
 
 function getBlitzHighscore(childId: string, listId: string): number {
   try {
@@ -82,6 +82,7 @@ export function BlitzGame({
   const [combo, setCombo] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paused, setPaused] = useState(false);
 
   // Swipe state
   const [dragX, setDragX] = useState(0);
@@ -101,8 +102,12 @@ export function BlitzGame({
 
   const SWIPE_THRESHOLD = 60;
 
-  // Timer
+  // Timer — pauses when paused
   useEffect(() => {
+    if (paused || gameOver) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -114,7 +119,7 @@ export function BlitzGame({
       });
     }, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, []);
+  }, [paused, gameOver]);
 
   // Highscore check
   useEffect(() => {
@@ -283,6 +288,13 @@ export function BlitzGame({
         <div className="flex items-center gap-3">
           <span className="text-lg font-bold text-orange-600 tabular-nums">{score}</span>
           <button
+            onClick={() => setPaused(p => !p)}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label={paused ? 'Hervat' : 'Pauze'}
+          >
+            {paused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
+          </button>
+          <button
             onClick={onQuit}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             aria-label="Stop"
@@ -384,7 +396,7 @@ export function BlitzGame({
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => processAnswer(false)}
-            disabled={isProcessing}
+            disabled={isProcessing || paused}
             className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl font-bold text-base transition-all touch-manipulation border-2 bg-red-50 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-400 active:bg-red-200 disabled:opacity-60"
           >
             <XIcon className="w-5 h-5" />
@@ -392,7 +404,7 @@ export function BlitzGame({
           </button>
           <button
             onClick={() => processAnswer(true)}
-            disabled={isProcessing}
+            disabled={isProcessing || paused}
             className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl font-bold text-base transition-all touch-manipulation border-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-400 active:bg-green-200 disabled:opacity-60"
           >
             <Check className="w-5 h-5" />
@@ -400,6 +412,21 @@ export function BlitzGame({
           </button>
         </div>
       </div>
+
+      {/* Pause overlay */}
+      {paused && (
+        <div className="absolute inset-0 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+          <div className="text-5xl mb-4">⏸️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Gepauzeerd</h2>
+          <p className="text-gray-500 mb-6">Neem even pauze!</p>
+          <button
+            onClick={() => setPaused(false)}
+            className="px-8 py-3 rounded-xl bg-orange-500 text-white font-bold text-lg active:scale-95 transition-transform touch-manipulation"
+          >
+            Verder spelen
+          </button>
+        </div>
+      )}
     </div>
   );
 }

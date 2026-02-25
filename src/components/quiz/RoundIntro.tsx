@@ -14,13 +14,13 @@ interface RoundIntroProps {
 const roundColors = {
   1: 'from-blue-50 to-blue-100 text-blue-700',
   2: 'from-green-50 to-green-100 text-green-700',
-  3: 'from-red-50 to-red-100 text-red-700',
+  3: 'from-purple-50 to-purple-100 text-purple-700',
 };
 
 const roundBadges = {
   1: 'bg-blue-500',
   2: 'bg-green-500',
-  3: 'bg-red-500',
+  3: 'bg-purple-500',
 };
 
 export function RoundIntro({ round, sourceLanguage, totalWords, difficultWordCount, mode, onStart }: RoundIntroProps) {
@@ -29,7 +29,7 @@ export function RoundIntro({ round, sourceLanguage, totalWords, difficultWordCou
   const descriptions = {
     1: `${langLabel} \u2192 Nederlands`,
     2: `Nederlands \u2192 ${langLabel}`,
-    3: 'Mixed: willekeurige richting',
+    3: 'Bonusronde!',
   };
 
   const isSelf = mode === 'self';
@@ -40,7 +40,7 @@ export function RoundIntro({ round, sourceLanguage, totalWords, difficultWordCou
     2: isSelf
       ? `Kies het juiste ${langLabel} woord voor elke Nederlandse vertaling.`
       : 'Lees het Nederlandse woord voor. Het kind zegt het woord in de vreemde taal.',
-    3: `${difficultWordCount} moeilijke woorden. Elk woord moet 2x achter elkaar goed.`,
+    3: `${difficultWordCount} woorden om te oefenen. Krijg ze 2x goed en je hebt ze onder de knie!`,
   };
 
   return (
@@ -49,7 +49,7 @@ export function RoundIntro({ round, sourceLanguage, totalWords, difficultWordCou
         <span className="text-2xl font-bold text-white">{round}</span>
       </div>
 
-      <h2 className="text-2xl font-bold mb-2 text-center">Ronde {round}</h2>
+      <h2 className="text-2xl font-bold mb-2 text-center">{round === 3 ? 'Bonusronde' : `Ronde ${round}`}</h2>
       <p className="text-lg font-medium mb-2 text-center">{descriptions[round]}</p>
       <p className="text-sm opacity-75 text-center mb-2 max-w-xs">{subtitles[round]}</p>
       <p className="text-sm opacity-60 mb-8">
@@ -57,7 +57,7 @@ export function RoundIntro({ round, sourceLanguage, totalWords, difficultWordCou
       </p>
 
       <Button variant="primary" size="xl" onClick={onStart} className="min-w-[200px]">
-        Start Ronde {round}
+        {round === 3 ? 'Start Bonusronde' : `Start Ronde ${round}`}
       </Button>
     </div>
   );

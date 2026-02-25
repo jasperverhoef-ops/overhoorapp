@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useMemo } from 'react';
 import { Trophy, Star, Clock, Target } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -23,6 +23,7 @@ interface SessionCompleteProps {
 
 export function SessionComplete({ childName, listName, rounds, allWords, onFinish }: SessionCompleteProps) {
   const navigate = useNavigate();
+  const { listId } = useParams<{ listId: string }>();
   const elapsedMs = useTimerStore((s) => s.elapsedMs);
   const selectedChildId = useAppStore((s) => s.selectedChildId);
 
@@ -97,11 +98,12 @@ export function SessionComplete({ childName, listName, rounds, allWords, onFinis
         'Mooi resultaat! Je bent op de goede weg! \u2B50',
       ]);
     } else {
+      const correct = Math.round(scorePercentage);
       return pick([
-        'Goed geprobeerd! Oefening baart kunst! \u{1F4AA}',
-        'Prima begin! Blijf oefenen, het wordt makkelijker! \u{1F4D6}',
-        'Je kunt het! Probeer het morgen nog eens! \u{1F331}',
-        'Goed bezig! Elke sessie leer je meer! \u{1F3AF}',
+        `Je kent al ${totalCorrect} van de ${totalWords} woorden! Probeer morgen opnieuw \u{1F4AA}`,
+        `${correct}% is een goed begin! Elke keer leer je er meer \u{1F331}`,
+        `${totalCorrect} woorden goed! De rest komt vanzelf als je blijft oefenen \u{1F3AF}`,
+        `Lastige lijst! Maar je kent al ${totalCorrect} woorden — ga zo door! \u{1F4DA}`,
       ]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -137,6 +139,15 @@ export function SessionComplete({ childName, listName, rounds, allWords, onFinis
       frame();
     }
   }, [isPerfect]);
+
+  const handleReplay = () => {
+    onFinish();
+    if (listId) {
+      navigate(`/play/${listId}/self`);
+    } else {
+      navigate('/play');
+    }
+  };
 
   const handleNewSession = () => {
     onFinish();
@@ -199,7 +210,7 @@ export function SessionComplete({ childName, listName, rounds, allWords, onFinis
             const colorStyles = {
               1: { bg: 'bg-blue-50', text: 'text-blue-800', bold: 'text-blue-900' },
               2: { bg: 'bg-green-50', text: 'text-green-800', bold: 'text-green-900' },
-              3: { bg: 'bg-red-50', text: 'text-red-800', bold: 'text-red-900' },
+              3: { bg: 'bg-purple-50', text: 'text-purple-800', bold: 'text-purple-900' },
             } as const;
             const styles = colorStyles[round.roundNumber];
 
@@ -209,7 +220,7 @@ export function SessionComplete({ childName, listName, rounds, allWords, onFinis
                 className={`flex items-center justify-between ${styles.bg} rounded-xl px-4 py-3`}
               >
                 <span className={`font-medium ${styles.text}`}>
-                  Ronde {round.roundNumber}
+                  {round.roundNumber === 3 ? 'Bonusronde' : `Ronde ${round.roundNumber}`}
                 </span>
                 <span className={`font-bold ${styles.bold}`}>
                   {round.roundNumber === 3
@@ -226,7 +237,7 @@ export function SessionComplete({ childName, listName, rounds, allWords, onFinis
         {isPerfect && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 mb-6 text-center max-w-xs">
             <p className="text-amber-800 font-medium">
-              Geen Ronde 3 nodig - alles meteen goed!
+              Geen bonusronde nodig - alles meteen goed!
             </p>
           </div>
         )}
@@ -264,8 +275,11 @@ export function SessionComplete({ childName, listName, rounds, allWords, onFinis
 
         {/* Actions */}
         <div className="w-full max-w-xs space-y-2">
-          <Button variant="primary" size="lg" className="w-full" onClick={handleNewSession}>
-            Nieuwe sessie
+          <Button variant="primary" size="lg" className="w-full" onClick={handleReplay}>
+            Opnieuw oefenen
+          </Button>
+          <Button variant="secondary" size="lg" className="w-full" onClick={handleNewSession}>
+            Andere lijst
           </Button>
           <Button variant="secondary" size="lg" className="w-full" onClick={handleDashboard}>
             Dashboard

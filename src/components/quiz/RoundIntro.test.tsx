@@ -22,13 +22,13 @@ describe('RoundIntro', () => {
     expect(screen.getByText(/Nederlands → Frans/)).toBeInTheDocument();
   });
 
-  it('toont ronde 3 info met moeilijke woorden', () => {
+  it('toont bonusronde info', () => {
     render(
       <RoundIntro round={3} sourceLanguage="de" totalWords={10} difficultWordCount={3} onStart={vi.fn()} />
     );
-    expect(screen.getByText('Ronde 3')).toBeInTheDocument();
+    expect(screen.getByText('Bonusronde')).toBeInTheDocument();
     expect(screen.getByText('3 woorden')).toBeInTheDocument();
-    expect(screen.getByText(/3 moeilijke woorden/)).toBeInTheDocument();
+    expect(screen.getByText(/3 woorden om te oefenen/)).toBeInTheDocument();
   });
 
   it('start knop werkt', async () => {

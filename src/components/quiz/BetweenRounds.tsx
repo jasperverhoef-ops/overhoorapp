@@ -39,18 +39,18 @@ export function BetweenRounds({ round1, round2, difficultWordCount, onStartRound
           </div>
         </div>
 
-        <div className="bg-red-50 rounded-2xl px-6 py-5 text-center mb-8 max-w-xs">
-          <h3 className="font-bold text-red-900 text-lg mb-2">
-            Ronde 3: Moeilijke woorden
+        <div className="bg-purple-50 rounded-2xl px-6 py-5 text-center mb-8 max-w-xs">
+          <h3 className="font-bold text-purple-900 text-lg mb-2">
+            Bonusronde!
           </h3>
-          <p className="text-sm text-red-700">
-            Er waren <strong>{difficultWordCount}</strong> woorden fout in Ronde 1 of 2.
-            Deze gaan we nu oefenen tot ze 2x achter elkaar goed zijn.
+          <p className="text-sm text-purple-700">
+            Nog <strong>{difficultWordCount}</strong> woorden om te oefenen.
+            Laat zien dat je ze nu wél kent — 2x goed en je hebt ze onder de knie!
           </p>
         </div>
 
         <Button variant="primary" size="xl" onClick={onStartRound3} className="min-w-[200px]">
-          Start Ronde 3
+          Start Bonusronde
         </Button>
       </div>
     </div>

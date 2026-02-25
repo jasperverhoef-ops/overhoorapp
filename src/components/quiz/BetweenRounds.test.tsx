@@ -39,7 +39,7 @@ describe('BetweenRounds', () => {
       />
     );
     expect(screen.getByText(/4/)).toBeInTheDocument();
-    expect(screen.getByText('Ronde 3: Moeilijke woorden')).toBeInTheDocument();
+    expect(screen.getByText('Bonusronde!')).toBeInTheDocument();
   });
 
   it('start ronde 3 knop werkt', async () => {
@@ -54,7 +54,7 @@ describe('BetweenRounds', () => {
       />
     );
 
-    await user.click(screen.getByText('Start Ronde 3'));
+    await user.click(screen.getByText('Start Bonusronde'));
     expect(onStart).toHaveBeenCalledOnce();
   });
 });
