@@ -124,11 +124,11 @@ export function SelfPlaySelectPage() {
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-gray-900">Blitz</h3>
+                <h3 className="text-base font-bold text-gray-900">Swipe Blitz</h3>
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Medium</span>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
-                Zoveel mogelijk woorden goed in 30 seconden!
+                Swipe goed of fout — zo snel mogelijk!
               </p>
             </div>
           </button>

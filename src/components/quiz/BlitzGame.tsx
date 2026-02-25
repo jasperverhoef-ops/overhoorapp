@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Zap, X, Trophy, Check, X as XIcon } from 'lucide-react';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
-import { generateChoices } from '../../lib/multipleChoice';
 import { shuffle } from '../../lib/shuffleUtils';
 import { useAppStore } from '../../stores/useAppStore';
 import { speakWord } from '../../lib/tts';
-import type { Word, Language, Direction, AnswerResult, ChoiceOption } from '../../models/types';
+import { playCorrectSound, playWrongSound } from '../../lib/sounds';
+import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 
-const BLITZ_DURATION = 30;
+const BLITZ_DURATION = 25; // seconds
 
 function getBlitzHighscore(childId: string, listId: string): number {
   try {
@@ -23,24 +23,12 @@ function saveBlitzHighscore(childId: string, listId: string, score: number): voi
   } catch { /* ignore */ }
 }
 
-type BlitzQuestionType = 'mc' | 'truefalse';
-
-interface BlitzMC {
-  type: 'mc';
-  word: Word;
-  direction: Direction;
-  choices: ChoiceOption[];
-}
-
-interface BlitzTrueFalse {
-  type: 'truefalse';
+interface SwipeCard {
   word: Word;
   direction: Direction;
   shownTranslation: string;
   isCorrectPair: boolean;
 }
-
-type BlitzQuestion = BlitzMC | BlitzTrueFalse;
 
 interface BlitzGameProps {
   words: Word[];
@@ -61,40 +49,29 @@ export function BlitzGame({
   onComplete,
   onQuit,
 }: BlitzGameProps) {
-  // Build a queue mixing MC and true/false questions
-  const wordQueue = useMemo(() => {
-    const queue: BlitzQuestion[] = [];
-    for (let pass = 0; pass < 3; pass++) {
+  // Build swipe card queue: true/false only
+  const cardQueue = useMemo(() => {
+    const queue: SwipeCard[] = [];
+    for (let pass = 0; pass < 4; pass++) {
       const shuffled = shuffle([...words]);
       for (const w of shuffled) {
         const direction: Direction = Math.random() < 0.5 ? 'source-to-dutch' : 'dutch-to-source';
-        // Alternate between MC and true/false (roughly 50/50)
-        const questionType: BlitzQuestionType = Math.random() < 0.5 ? 'mc' : 'truefalse';
+        const correctAnswer = direction === 'source-to-dutch' ? w.dutchWord : w.sourceWord;
+        const isCorrectPair = Math.random() < 0.5;
 
-        if (questionType === 'mc') {
-          const choices = generateChoices(w, words, direction);
-          queue.push({ type: 'mc', word: w, direction, choices });
+        let shownTranslation: string;
+        if (isCorrectPair) {
+          shownTranslation = correctAnswer;
         } else {
-          // True/false: 50% chance of showing correct translation, 50% a wrong one
-          const correctAnswer = direction === 'source-to-dutch' ? w.dutchWord : w.sourceWord;
-          const isCorrectPair = Math.random() < 0.5;
-          let shownTranslation: string;
-
-          if (isCorrectPair) {
-            shownTranslation = correctAnswer;
+          const others = words.filter(o => o.id !== w.id);
+          if (others.length > 0) {
+            const pick = others[Math.floor(Math.random() * others.length)];
+            shownTranslation = direction === 'source-to-dutch' ? pick.dutchWord : pick.sourceWord;
           } else {
-            // Pick a random wrong translation from other words
-            const otherWords = words.filter(ow => ow.id !== w.id);
-            if (otherWords.length > 0) {
-              const randomOther = otherWords[Math.floor(Math.random() * otherWords.length)];
-              shownTranslation = direction === 'source-to-dutch' ? randomOther.dutchWord : randomOther.sourceWord;
-            } else {
-              // Fallback: show correct if no other words
-              shownTranslation = correctAnswer;
-            }
+            shownTranslation = correctAnswer;
           }
-          queue.push({ type: 'truefalse', word: w, direction, shownTranslation, isCorrectPair });
         }
+        queue.push({ word: w, direction, shownTranslation, isCorrectPair });
       }
     }
     return queue;
@@ -103,17 +80,29 @@ export function BlitzGame({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(BLITZ_DURATION);
   const [score, setScore] = useState(0);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [tfAnswer, setTfAnswer] = useState<'goed' | 'fout' | null>(null);
-  const [flash, setFlash] = useState<'good' | 'wrong' | null>(null);
+  const [combo, setCombo] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Swipe state
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [swipeResult, setSwipeResult] = useState<'correct' | 'wrong' | null>(null);
+  const [flyDirection, setFlyDirection] = useState<'left' | 'right' | null>(null);
+  const startXRef = useRef(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+
   const resultsRef = useRef<{ wordId: string; direction: Direction; result: AnswerResult }[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const soundEnabled = useAppStore((s) => s.soundEnabled);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
 
   const savedHighscore = useMemo(() => getBlitzHighscore(childId, listId), [childId, listId]);
   const [isNewHighscore, setIsNewHighscore] = useState(false);
 
-  // Start countdown timer
+  const SWIPE_THRESHOLD = 60;
+
+  // Timer
   useEffect(() => {
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
@@ -128,79 +117,34 @@ export function BlitzGame({
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  // Check highscore when game ends
+  // Highscore check
   useEffect(() => {
-    if (gameOver) {
-      if (score > savedHighscore) {
-        saveBlitzHighscore(childId, listId, score);
-        setIsNewHighscore(true);
-      }
+    if (gameOver && score > savedHighscore) {
+      saveBlitzHighscore(childId, listId, score);
+      setIsNewHighscore(true);
     }
   }, [gameOver, score, savedHighscore, childId, listId]);
 
-  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
-
-  const current = wordQueue[currentIndex];
+  const current = cardQueue[currentIndex];
   const isSourceToDutch = current?.direction === 'source-to-dutch';
   const displayWord = current
     ? isSourceToDutch ? current.word.sourceWord : current.word.dutchWord
     : '';
   const displayFlag = isSourceToDutch ? LANGUAGE_FLAGS[sourceLanguage] : '\u{1F1F3}\u{1F1F1}';
   const displayLanguage = isSourceToDutch ? sourceLanguage : 'nl' as const;
-  const directionLabel = isSourceToDutch
-    ? `${LANGUAGE_LABELS[sourceLanguage]} \u2192 NL`
-    : `NL \u2192 ${LANGUAGE_LABELS[sourceLanguage]}`;
 
-  // Auto-speak word when it changes (TTS enabled)
   useEffect(() => {
     if (ttsEnabled && displayWord && !gameOver) {
       speakWord(displayWord, displayLanguage);
     }
   }, [ttsEnabled, currentIndex, displayWord, displayLanguage, gameOver]);
 
-  // MC handler
-  const handleChoice = useCallback((choice: ChoiceOption, index: number) => {
-    if (selectedIndex !== null || gameOver) return;
-    setSelectedIndex(index);
-
-    const result: AnswerResult = choice.isCorrect ? 'correct' : 'wrong';
-    if (choice.isCorrect) {
-      setScore(prev => prev + 1);
-      setFlash('good');
-      if (navigator.vibrate) navigator.vibrate(50);
-    } else {
-      setFlash('wrong');
-      if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-    }
-
-    resultsRef.current.push({
-      wordId: current.word.id,
-      direction: current.direction,
-      result,
-    });
-
-    setTimeout(() => {
-      setSelectedIndex(null);
-      setFlash(null);
-      setCurrentIndex(prev => prev + 1);
-    }, 400);
-  }, [selectedIndex, gameOver, current]);
-
-  // True/false handler
-  const handleTrueFalse = useCallback((answeredTrue: boolean) => {
-    if (tfAnswer !== null || gameOver || current?.type !== 'truefalse') return;
-    setTfAnswer(answeredTrue ? 'goed' : 'fout');
+  const processAnswer = useCallback((answeredTrue: boolean) => {
+    if (isProcessing || gameOver || !current) return;
+    setIsProcessing(true);
 
     const isCorrect = answeredTrue === current.isCorrectPair;
     const result: AnswerResult = isCorrect ? 'correct' : 'wrong';
-    if (isCorrect) {
-      setScore(prev => prev + 1);
-      setFlash('good');
-      if (navigator.vibrate) navigator.vibrate(50);
-    } else {
-      setFlash('wrong');
-      if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-    }
 
     resultsRef.current.push({
       wordId: current.word.id,
@@ -208,22 +152,86 @@ export function BlitzGame({
       result,
     });
 
+    if (isCorrect) {
+      setScore(prev => prev + 1);
+      setCombo(prev => prev + 1);
+      setSwipeResult('correct');
+      if (soundEnabled) playCorrectSound();
+      if (navigator.vibrate) navigator.vibrate(50);
+    } else {
+      setCombo(0);
+      setSwipeResult('wrong');
+      if (soundEnabled) playWrongSound();
+      if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+    }
+
+    setFlyDirection(answeredTrue ? 'right' : 'left');
+
     setTimeout(() => {
-      setTfAnswer(null);
-      setFlash(null);
+      setSwipeResult(null);
+      setFlyDirection(null);
+      setDragX(0);
+      setIsProcessing(false);
       setCurrentIndex(prev => prev + 1);
-    }, 400);
-  }, [tfAnswer, gameOver, current]);
+    }, 300);
+  }, [isProcessing, gameOver, current, soundEnabled]);
+
+  // Touch handlers
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (isProcessing || gameOver) return;
+    startXRef.current = e.clientX;
+    setIsDragging(true);
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  }, [isProcessing, gameOver]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging || isProcessing) return;
+    const dx = e.clientX - startXRef.current;
+    setDragX(dx);
+  }, [isDragging, isProcessing]);
+
+  const handlePointerUp = useCallback(() => {
+    if (!isDragging || isProcessing) return;
+    setIsDragging(false);
+
+    if (Math.abs(dragX) >= SWIPE_THRESHOLD) {
+      processAnswer(dragX > 0); // right = goed, left = fout
+    } else {
+      setDragX(0);
+    }
+  }, [isDragging, isProcessing, dragX, processAnswer]);
+
+  // Keyboard
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (gameOver || isProcessing) return;
+      if (e.key === 'ArrowRight') processAnswer(true);
+      else if (e.key === 'ArrowLeft') processAnswer(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [gameOver, isProcessing, processAnswer]);
 
   const handleFinish = useCallback(() => {
     onComplete(resultsRef.current);
   }, [onComplete]);
 
-  // Timer bar percentage
   const timerPct = (timeLeft / BLITZ_DURATION) * 100;
-  const isUrgent = timeLeft <= 10;
+  const isUrgent = timeLeft <= 8;
 
-  // Game over overlay
+  // Swipe visual indicators
+  const swipeOpacity = Math.min(Math.abs(dragX) / SWIPE_THRESHOLD, 1);
+  const isSwipingRight = dragX > 20;
+  const isSwipingLeft = dragX < -20;
+
+  // Card rotation based on drag
+  const cardRotation = Math.max(-15, Math.min(15, dragX / 15));
+
+  // Fly-out transform
+  const flyTransform = flyDirection
+    ? `translateX(${flyDirection === 'right' ? '120%' : '-120%'}) rotate(${flyDirection === 'right' ? 30 : -30}deg)`
+    : `translateX(${dragX}px) rotate(${cardRotation}deg)`;
+
   if (gameOver) {
     return (
       <div className="min-h-full flex flex-col items-center justify-center bg-gradient-to-b from-orange-50 to-white px-6">
@@ -260,23 +268,24 @@ export function BlitzGame({
   }
 
   return (
-    <div className={`min-h-full flex flex-col bg-white ${flash === 'good' ? 'flash-good' : flash === 'wrong' ? 'flash-wrong' : ''}`}>
+    <div className="min-h-full flex flex-col bg-white select-none overflow-hidden">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
         <div className="flex-1">
-          <p className="text-sm font-semibold text-gray-900">{childName}</p>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2">
             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
-              Blitz!
+              Swipe Blitz!
             </span>
-            <span className="text-xs text-gray-500">{directionLabel}</span>
+            {combo >= 3 && (
+              <span className="text-xs font-bold text-orange-500">{combo}x combo!</span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-lg font-bold text-orange-600">{score} goed</span>
+          <span className="text-lg font-bold text-orange-600 tabular-nums">{score}</span>
           <button
             onClick={onQuit}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             aria-label="Stop"
           >
             <X className="w-5 h-5" />
@@ -285,118 +294,113 @@ export function BlitzGame({
       </div>
 
       {/* Timer */}
-      <div className="px-4 pt-3 pb-2">
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-2">
-            <Zap className={`w-5 h-5 ${isUrgent ? 'text-red-500' : 'text-orange-500'}`} />
-            <span className={`text-2xl font-bold tabular-nums ${isUrgent ? 'text-red-600' : 'text-orange-600'}`}>
+      <div className="px-4 pt-2 pb-1">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1.5">
+            <Zap className={`w-4 h-4 ${isUrgent ? 'text-red-500' : 'text-orange-500'}`} />
+            <span className={`text-xl font-bold tabular-nums ${isUrgent ? 'text-red-600' : 'text-orange-600'}`}>
               {timeLeft}s
             </span>
           </div>
           {savedHighscore > 0 && (
-            <div className="flex items-center gap-1.5">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <span className="text-xs text-amber-500 font-medium">Highscore: {savedHighscore}</span>
+            <div className="flex items-center gap-1">
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-xs text-amber-500 font-medium">{savedHighscore}</span>
             </div>
           )}
         </div>
-        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-1000 ease-linear ${
-              isUrgent ? 'bg-red-500' : 'bg-orange-500'
-            }`}
+            className={`h-full rounded-full transition-all duration-1000 ease-linear ${isUrgent ? 'bg-red-500' : 'bg-orange-500'}`}
             style={{ width: `${timerPct}%` }}
           />
         </div>
       </div>
 
-      {/* Question area */}
-      {current?.type === 'truefalse' ? (
-        /* True/False question */
-        <>
-          <div className="flex-1 flex flex-col items-center justify-center px-6">
+      {/* Swipe hint labels */}
+      <div className="flex items-center justify-between px-6 pt-3">
+        <div className={`flex items-center gap-1 transition-opacity ${isSwipingLeft ? 'opacity-100' : 'opacity-30'}`}>
+          <XIcon className="w-4 h-4 text-red-500" />
+          <span className="text-sm font-bold text-red-500">Fout</span>
+        </div>
+        <p className="text-xs text-gray-400">Swipe of tap</p>
+        <div className={`flex items-center gap-1 transition-opacity ${isSwipingRight ? 'opacity-100' : 'opacity-30'}`}>
+          <span className="text-sm font-bold text-green-500">Goed</span>
+          <Check className="w-4 h-4 text-green-500" />
+        </div>
+      </div>
+
+      {/* Card area */}
+      <div className="flex-1 flex items-center justify-center px-6 py-4">
+        <div
+          ref={cardRef}
+          className={`relative w-full max-w-sm rounded-2xl shadow-xl border-2 p-6 cursor-grab active:cursor-grabbing touch-manipulation transition-shadow ${
+            swipeResult === 'correct'
+              ? 'border-green-400 bg-green-50 shadow-green-200'
+              : swipeResult === 'wrong'
+                ? 'border-red-400 bg-red-50 shadow-red-200'
+                : isSwipingRight
+                  ? 'border-green-300 bg-green-50/50'
+                  : isSwipingLeft
+                    ? 'border-red-300 bg-red-50/50'
+                    : 'border-gray-200 bg-white'
+          }`}
+          style={{
+            transform: flyTransform,
+            transition: flyDirection ? 'transform 0.3s ease-out' : isDragging ? 'none' : 'transform 0.2s ease-out',
+          }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        >
+          {/* Left/Right edge indicators */}
+          {isSwipingLeft && (
+            <div className="absolute top-4 left-4 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center" style={{ opacity: swipeOpacity }}>
+              <XIcon className="w-6 h-6 text-white" />
+            </div>
+          )}
+          {isSwipingRight && (
+            <div className="absolute top-4 right-4 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center" style={{ opacity: swipeOpacity }}>
+              <Check className="w-6 h-6 text-white" />
+            </div>
+          )}
+
+          <div className="flex flex-col items-center text-center pt-4">
             <p className="text-sm text-gray-400 mb-3 font-medium">Klopt deze vertaling?</p>
-            <span className="text-3xl mb-3">{displayFlag}</span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 text-center leading-tight">
-              {displayWord}
-            </h2>
-            <div className="mt-4 text-2xl font-semibold text-purple-700">
-              = {current.shownTranslation}
-            </div>
-          </div>
-
-          {/* True/False buttons */}
-          <div className="px-4 pb-6 safe-area-bottom">
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleTrueFalse(true)}
-                disabled={tfAnswer !== null}
-                className={`flex items-center justify-center gap-2 px-4 py-5 rounded-xl font-bold text-lg transition-all touch-manipulation border-2 ${
-                  tfAnswer === 'goed'
-                    ? current.isCorrectPair
-                      ? 'bg-green-100 border-green-500 text-green-800'
-                      : 'bg-red-100 border-red-500 text-red-800'
-                    : tfAnswer !== null && current.isCorrectPair
-                      ? 'bg-green-50 border-green-400 text-green-700'
-                      : 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100 hover:border-green-500 active:bg-green-200'
-                } disabled:opacity-70`}
-              >
-                <Check className="w-6 h-6" />
-                Goed
-              </button>
-              <button
-                onClick={() => handleTrueFalse(false)}
-                disabled={tfAnswer !== null}
-                className={`flex items-center justify-center gap-2 px-4 py-5 rounded-xl font-bold text-lg transition-all touch-manipulation border-2 ${
-                  tfAnswer === 'fout'
-                    ? !current.isCorrectPair
-                      ? 'bg-green-100 border-green-500 text-green-800'
-                      : 'bg-red-100 border-red-500 text-red-800'
-                    : tfAnswer !== null && !current.isCorrectPair
-                      ? 'bg-green-50 border-green-400 text-green-700'
-                      : 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100 hover:border-red-500 active:bg-red-200'
-                } disabled:opacity-70`}
-              >
-                <XIcon className="w-6 h-6" />
-                Fout
-              </button>
-            </div>
-          </div>
-        </>
-      ) : (
-        /* Multiple Choice question */
-        <>
-          <div className="flex-1 flex flex-col items-center justify-center px-6">
             <span className="text-3xl mb-2">{displayFlag}</span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 text-center leading-tight">
+            <h2 className="text-3xl font-bold text-gray-900 leading-tight mb-4">
               {displayWord}
             </h2>
+            <div className="w-12 h-px bg-gray-200 mb-4" />
+            <p className="text-2xl font-semibold text-purple-700">
+              = {current?.shownTranslation}
+            </p>
           </div>
+        </div>
+      </div>
 
-          <div className="px-4 pb-6 safe-area-bottom">
-            <div className="grid grid-cols-2 gap-2">
-              {current?.type === 'mc' && current.choices.map((choice, index) => (
-                <button
-                  key={`${currentIndex}-${index}`}
-                  onClick={() => handleChoice(choice, index)}
-                  disabled={selectedIndex !== null}
-                  className={`px-4 py-4 rounded-xl font-semibold text-base transition-all touch-manipulation border-2 ${
-                    selectedIndex === index
-                      ? choice.isCorrect
-                        ? 'bg-green-100 border-green-500 text-green-800'
-                        : 'bg-red-100 border-red-500 text-red-800'
-                      : selectedIndex !== null && choice.isCorrect
-                        ? 'bg-green-50 border-green-400 text-green-700'
-                        : 'bg-gray-50 border-gray-200 text-gray-900 hover:border-orange-400 hover:bg-orange-50 active:bg-orange-100'
-                  } disabled:opacity-70`}
-                >
-                  {choice.text}
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+      {/* Tap buttons (alternative to swiping) */}
+      <div className="px-4 pb-6 safe-area-bottom">
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => processAnswer(false)}
+            disabled={isProcessing}
+            className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl font-bold text-base transition-all touch-manipulation border-2 bg-red-50 border-red-200 text-red-700 hover:bg-red-100 hover:border-red-400 active:bg-red-200 disabled:opacity-60"
+          >
+            <XIcon className="w-5 h-5" />
+            Fout
+          </button>
+          <button
+            onClick={() => processAnswer(true)}
+            disabled={isProcessing}
+            className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl font-bold text-base transition-all touch-manipulation border-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-400 active:bg-green-200 disabled:opacity-60"
+          >
+            <Check className="w-5 h-5" />
+            Goed
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus, BookOpen, ChevronRight } from 'lucide-react';
+import { Plus, BookOpen, Settings, Play } from 'lucide-react';
 import { db } from '../../db';
 import { useAppStore } from '../../stores/useAppStore';
 import { Header } from '../layout/Header';
@@ -78,22 +78,57 @@ export function ListsOverview() {
           />
         ) : (
           <div className="space-y-2">
-            {lists.map((list) => (
-              <div
-                key={list.id}
-                onClick={() => navigate(`/lists/${list.id}`)}
-                className="flex items-center bg-white rounded-xl px-4 py-3.5 border border-gray-100 cursor-pointer hover:shadow-sm active:bg-gray-50 transition-all touch-manipulation"
-              >
-                <span className="text-xl mr-3">{LANGUAGE_FLAGS[list.sourceLanguage]}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">{list.name}</p>
-                  <p className="text-sm text-gray-500">
-                    {wordCounts?.[list.id] ?? 0} woorden
-                  </p>
+            {lists.map((list) => {
+              const count = wordCounts?.[list.id] ?? 0;
+              const canPlay = count >= 2;
+
+              return (
+                <div
+                  key={list.id}
+                  className="flex items-center bg-white rounded-xl px-4 py-3.5 border border-gray-100 transition-all touch-manipulation"
+                >
+                  {/* Main area: click to play */}
+                  <div
+                    className={`flex items-center flex-1 min-w-0 ${canPlay ? 'cursor-pointer' : ''}`}
+                    onClick={() => {
+                      if (canPlay) {
+                        navigate(`/play/${list.id}/mode`);
+                      } else {
+                        navigate(`/lists/${list.id}`);
+                      }
+                    }}
+                  >
+                    <span className="text-xl mr-3">{LANGUAGE_FLAGS[list.sourceLanguage]}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{list.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {count} woorden
+                        {!canPlay && count < 2 && (
+                          <span className="text-xs text-amber-600 ml-1">(min. 2 nodig)</span>
+                        )}
+                      </p>
+                    </div>
+                    {canPlay && (
+                      <div className="ml-2 w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Play className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Edit gear icon */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/lists/${list.id}`);
+                    }}
+                    className="ml-2 p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 touch-manipulation flex-shrink-0"
+                    aria-label={`${list.name} bewerken`}
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-300 ml-2" />
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

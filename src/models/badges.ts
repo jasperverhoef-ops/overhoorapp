@@ -7,6 +7,8 @@ export interface Badge {
   name: string;
   description: string;
   earned: boolean;
+  /** Progress towards earning (0-1), only for unearned badges */
+  progress?: number;
 }
 
 export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[] {
@@ -67,6 +69,10 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
   const today = new Date().toDateString();
   const sessionsToday = completed.filter(s => new Date(s.startedAt).toDateString() === today).length;
 
+  // Helper: compute progress (0..1) for threshold-based badges
+  const p = (current: number, target: number) => Math.min(current / target, 1);
+  const bestPerfectByList = Math.max(0, ...[...perfectByList.values()]);
+
   return [
     // ─── Beginners (easy to earn) ───
     {
@@ -75,6 +81,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Eerste sessie',
       description: 'Voltooi je eerste oefensessie',
       earned: completed.length >= 1,
+      progress: p(completed.length, 1),
     },
     {
       id: 'perfect-score',
@@ -89,6 +96,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Op gang',
       description: 'Voltooi 3 oefensessies',
       earned: completed.length >= 3,
+      progress: p(completed.length, 3),
     },
 
     // ─── Effort badges ───
@@ -98,6 +106,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '10 sessies',
       description: 'Voltooi 10 oefensessies',
       earned: completed.length >= 10,
+      progress: p(completed.length, 10),
     },
     {
       id: 'twenty-five-sessions',
@@ -105,6 +114,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '25 sessies',
       description: 'Voltooi 25 oefensessies',
       earned: completed.length >= 25,
+      progress: p(completed.length, 25),
     },
     {
       id: 'fifty-sessions',
@@ -112,6 +122,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '50 sessies',
       description: 'Voltooi 50 oefensessies',
       earned: completed.length >= 50,
+      progress: p(completed.length, 50),
     },
     {
       id: 'hundred-sessions',
@@ -119,6 +130,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '100 sessies',
       description: 'Voltooi 100 oefensessies! Wat een doorzetter!',
       earned: completed.length >= 100,
+      progress: p(completed.length, 100),
     },
 
     // ─── Word mastery ───
@@ -128,6 +140,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '50 woorden',
       description: '50 woorden direct goed beantwoord',
       earned: totalDirectCorrect >= 50,
+      progress: p(totalDirectCorrect, 50),
     },
     {
       id: 'two-fifty-words',
@@ -135,6 +148,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '250 woorden',
       description: '250 woorden direct goed beantwoord',
       earned: totalDirectCorrect >= 250,
+      progress: p(totalDirectCorrect, 250),
     },
     {
       id: 'thousand-words',
@@ -142,6 +156,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '1000 woorden',
       description: '1000 woorden direct goed! Je bent een genie!',
       earned: totalDirectCorrect >= 1000,
+      progress: p(totalDirectCorrect, 1000),
     },
 
     // ─── Lists badges ───
@@ -151,6 +166,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '3 lijsten',
       description: 'Maak 3 woordenlijsten aan',
       earned: lists.length >= 3,
+      progress: p(lists.length, 3),
     },
     {
       id: 'five-lists',
@@ -158,6 +174,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '5 lijsten',
       description: 'Maak 5 woordenlijsten aan',
       earned: lists.length >= 5,
+      progress: p(lists.length, 5),
     },
     {
       id: 'ten-lists',
@@ -165,6 +182,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '10 lijsten',
       description: 'Maak 10 woordenlijsten aan',
       earned: lists.length >= 10,
+      progress: p(lists.length, 10),
     },
 
     // ─── Speed badges ───
@@ -190,6 +208,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '3 dagen streak',
       description: '3 dagen achter elkaar geoefend',
       earned: maxStreak >= 3,
+      progress: p(maxStreak, 3),
     },
     {
       id: 'streak-7',
@@ -197,6 +216,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Weekstrijder',
       description: '7 dagen achter elkaar geoefend',
       earned: maxStreak >= 7,
+      progress: p(maxStreak, 7),
     },
     {
       id: 'streak-14',
@@ -204,6 +224,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '2 weken streak',
       description: '14 dagen achter elkaar geoefend!',
       earned: maxStreak >= 14,
+      progress: p(maxStreak, 14),
     },
     {
       id: 'streak-30',
@@ -211,6 +232,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Maandkampioen',
       description: '30 dagen achter elkaar geoefend!',
       earned: maxStreak >= 30,
+      progress: p(maxStreak, 30),
     },
 
     // ─── Perfection badges ───
@@ -220,6 +242,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Meester',
       description: '3x perfecte score op dezelfde lijst',
       earned: hasTriplePerfect,
+      progress: p(bestPerfectByList, 3),
     },
     {
       id: 'five-perfect',
@@ -227,6 +250,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Perfectionist',
       description: '5 perfecte sessies totaal',
       earned: perfectSessions.length >= 5,
+      progress: p(perfectSessions.length, 5),
     },
     {
       id: 'ten-perfect',
@@ -234,6 +258,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Diamant',
       description: '10 perfecte sessies!',
       earned: perfectSessions.length >= 10,
+      progress: p(perfectSessions.length, 10),
     },
 
     // ─── Variety badges ───
@@ -243,6 +268,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Ontdekker',
       description: 'Oefen met 3 verschillende lijsten',
       earned: uniqueListsPracticed >= 3,
+      progress: p(uniqueListsPracticed, 3),
     },
     {
       id: 'world-traveler',
@@ -250,6 +276,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Wereldreiziger',
       description: 'Oefen met 5 verschillende lijsten',
       earned: uniqueListsPracticed >= 5,
+      progress: p(uniqueListsPracticed, 5),
     },
 
     // ─── Time investment ───
@@ -259,6 +286,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '1 uur oefenen',
       description: 'Totaal 1 uur geoefend',
       earned: totalHours >= 1,
+      progress: p(totalHours, 1),
     },
     {
       id: 'five-hours',
@@ -266,6 +294,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: '5 uur oefenen',
       description: 'Totaal 5 uur geoefend!',
       earned: totalHours >= 5,
+      progress: p(totalHours, 5),
     },
 
     // ─── Daily dedication ───
@@ -275,6 +304,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Doorzetter',
       description: '3 sessies op \u00e9\u00e9n dag',
       earned: sessionsToday >= 3,
+      progress: p(sessionsToday, 3),
     },
 
     // ─── Level badges ───
@@ -284,6 +314,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Level 5',
       description: 'Bereik Level 5: Woordenkenner',
       earned: level.level >= 5,
+      progress: p(level.level, 5),
     },
     {
       id: 'level-10',
@@ -291,6 +322,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Level 10',
       description: 'Bereik Level 10: Taalkoning',
       earned: level.level >= 10,
+      progress: p(level.level, 10),
     },
     {
       id: 'level-15',
@@ -298,6 +330,7 @@ export function calculateBadges(sessions: Session[], lists: WordList[]): Badge[]
       name: 'Max Level',
       description: 'Bereik het maximale level!',
       earned: level.level >= 15,
+      progress: p(level.level, 15),
     },
   ];
 }
