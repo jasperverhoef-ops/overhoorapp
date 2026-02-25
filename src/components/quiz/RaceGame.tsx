@@ -8,9 +8,9 @@ import { playCorrectSound, playWrongSound, playPerfectSound } from '../../lib/so
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 
 const MAX_LIVES = 3;
-const BASE_SPEED = 0.8;
-const MAX_STREAK_BONUS = 0.6;
-const NITRO_SPEED = 2.2;
+const BASE_SPEED = 0.5;
+const MAX_STREAK_BONUS = 0.35;
+const NITRO_SPEED = 1.4;
 const NITRO_DURATION = 350;
 const GATE_HIT_ZONE = 75;
 
@@ -540,15 +540,6 @@ export function RaceGame({
         </div>
       </div>
 
-      {/* Question word */}
-      <div className="text-center py-2.5 bg-slate-900 z-20 relative">
-        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-2xl bg-slate-800/80 border border-slate-700">
-          <span className="text-xl">{displayFlag}</span>
-          <h2 className="text-xl font-bold text-white">{displayWord}</h2>
-        </div>
-        <p className="text-[10px] text-slate-500 mt-1">{directionLabel}</p>
-      </div>
-
       {/* Race track area */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: '280px' }}>
         {/* Grass background */}
@@ -676,6 +667,15 @@ export function RaceGame({
               🏎️
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Question word — positioned near controls so eyes stay in one area */}
+      <div className="text-center py-2 bg-slate-900 z-20 relative border-t border-slate-800">
+        <p className="text-[10px] text-slate-500 mb-0.5">{directionLabel}</p>
+        <div className="inline-flex items-center gap-2 px-5 py-1.5 rounded-2xl bg-slate-800/80 border border-slate-700">
+          <span className="text-lg">{displayFlag}</span>
+          <h2 className="text-xl font-bold text-white">{displayWord}</h2>
         </div>
       </div>
 
