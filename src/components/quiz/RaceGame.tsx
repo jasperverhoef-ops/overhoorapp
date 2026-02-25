@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Car, Flag, X, Heart, Trophy, Zap } from 'lucide-react';
+import { Flag, X, Heart, Trophy, Zap } from 'lucide-react';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 import { useAppStore } from '../../stores/useAppStore';
@@ -12,7 +12,7 @@ const BASE_SPEED = 0.8;
 const MAX_STREAK_BONUS = 0.6;
 const NITRO_SPEED = 2.2;
 const NITRO_DURATION = 350;
-const GATE_HIT_ZONE = 80;
+const GATE_HIT_ZONE = 75;
 
 interface RaceWord {
   word: Word;
@@ -53,6 +53,9 @@ function saveRaceHighscore(childId: string, listId: string, score: number): void
   } catch { /* ignore */ }
 }
 
+// Scenery items that scroll down the sides
+const SCENERY_ITEMS = ['🌳', '🌲', '🌿', '🪨', '🌸', '🏠', '⭐'];
+
 export function RaceGame({
   words,
   sourceLanguage,
@@ -76,6 +79,14 @@ export function RaceGame({
     return queue;
   }, [words]);
 
+  // Pre-generate scenery positions
+  const scenery = useMemo(() =>
+    Array.from({ length: 12 }).map((_, i) => ({
+      emoji: SCENERY_ITEMS[i % SCENERY_ITEMS.length],
+      side: i % 2 === 0 ? 'left' : 'right',
+      offsetY: (i * 85) % 1000,
+    })), []);
+
   // Render state
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
@@ -91,6 +102,7 @@ export function RaceGame({
   const [shake, setShake] = useState(false);
   const [roadOffset, setRoadOffset] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [flashResult, setFlashResult] = useState<'correct' | 'wrong' | null>(null);
 
   // Refs for values accessed inside requestAnimationFrame
   const laneRef = useRef(lane);
@@ -175,6 +187,14 @@ export function RaceGame({
     }
   }, [streak, nitro]);
 
+  // Clear flash result
+  useEffect(() => {
+    if (flashResult) {
+      const t = setTimeout(() => setFlashResult(null), 500);
+      return () => clearTimeout(t);
+    }
+  }, [flashResult]);
+
   // Stable callbacks for animation loop (use refs, no dependencies that change)
   const processCorrect = useCallback(() => {
     const idx = currentIndexRef.current;
@@ -191,6 +211,7 @@ export function RaceGame({
 
     setScore((prev) => prev + 1);
     setStreak((prev) => prev + 1);
+    setFlashResult('correct');
 
     // Nitro effect
     setNitro(true);
@@ -221,6 +242,7 @@ export function RaceGame({
 
     setStreak(0);
     setShake(true);
+    setFlashResult('wrong');
     setTimeout(() => setShake(false), 400);
 
     const currentLives = livesRef.current;
@@ -364,20 +386,30 @@ export function RaceGame({
   // Game over screen
   if (gameOver) {
     return (
-      <div className="min-h-full flex flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 px-6">
-        <div className="text-center max-w-sm w-full">
-          <Car className="w-16 h-16 text-red-400 mx-auto mb-4 opacity-50" />
+      <div className="min-h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 px-6">
+        <div className="text-center max-w-sm w-full animate-bounce-in">
+          <div className="text-6xl mb-4" style={{ filter: 'grayscale(0.5)' }}>💥</div>
           <h1 className="text-3xl font-bold text-white mb-2">Game Over!</h1>
           <p className="text-gray-400 mb-6">Je levens zijn op</p>
 
-          <div className="mb-6">
-            <div className="text-6xl font-bold text-cyan-400 mb-2">{score}/{totalWords}</div>
-            <p className="text-gray-400">woorden goed</p>
-            <p className="text-sm text-gray-500 mt-1">Tijd: {formatTime(elapsedMs)}</p>
+          <div className="bg-slate-800/80 rounded-2xl p-6 mb-6 border border-slate-700 backdrop-blur">
+            <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 mb-1">{score}/{totalWords}</div>
+            <p className="text-gray-400 text-sm">woorden goed</p>
+            <div className="flex items-center justify-center gap-4 mt-4 text-sm">
+              <div className="text-center">
+                <p className="text-xl font-bold text-white tabular-nums">{formatTime(elapsedMs)}</p>
+                <p className="text-gray-500 text-xs">Tijd</p>
+              </div>
+              <div className="w-px h-8 bg-slate-700" />
+              <div className="text-center">
+                <p className="text-xl font-bold text-white">{streak}</p>
+                <p className="text-gray-500 text-xs">Beste reeks</p>
+              </div>
+            </div>
           </div>
 
           {isNewHighscore && (
-            <div className="flex items-center justify-center gap-2 mb-6 py-3 px-6 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl border-2 border-yellow-500/50">
+            <div className="flex items-center justify-center gap-2 mb-6 py-3 px-6 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl border-2 border-yellow-500/50 animate-pulse">
               <Trophy className="w-6 h-6 text-yellow-400" />
               <span className="text-lg font-bold text-yellow-400">Nieuw record!</span>
             </div>
@@ -385,7 +417,7 @@ export function RaceGame({
 
           <button
             onClick={handleFinish}
-            className="w-full py-4 rounded-2xl bg-cyan-500 text-white font-bold text-lg hover:bg-cyan-600 active:bg-cyan-700 transition-colors touch-manipulation shadow-lg shadow-cyan-500/30"
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-lg active:scale-95 transition-transform touch-manipulation shadow-lg shadow-cyan-500/25"
           >
             Klaar
           </button>
@@ -396,37 +428,42 @@ export function RaceGame({
 
   // Race finished screen
   if (raceFinished) {
+    const perfectRun = score === totalWords;
     return (
-      <div className="min-h-full flex flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-gray-800 px-6">
+      <div className="min-h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 px-6">
         <div className="text-center max-w-sm w-full animate-bounce-in">
-          <div className="relative inline-block mb-6">
-            <Flag className="w-20 h-20 text-green-400 mx-auto" />
-            <div className="absolute -top-2 -right-2 w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center animate-pulse">
-              <Trophy className="w-6 h-6 text-yellow-800" />
-            </div>
+          <div className="relative inline-block mb-4">
+            <div className="text-7xl">{perfectRun ? '🏆' : '🏁'}</div>
+            {perfectRun && (
+              <div className="absolute -top-1 -right-3 text-2xl animate-spin-slow">⭐</div>
+            )}
           </div>
 
-          <h1 className="text-3xl font-bold text-white mb-2">Race Voltooid!</h1>
-          <p className="text-green-400 font-semibold mb-6">Geweldig gereden, {childName}!</p>
+          <h1 className="text-3xl font-bold text-white mb-1">
+            {perfectRun ? 'Perfect!' : 'Race Voltooid!'}
+          </h1>
+          <p className="text-emerald-400 font-semibold mb-6">
+            {perfectRun ? 'Foutloos gereden!' : `Goed gereden, ${childName}!`}
+          </p>
 
-          <div className="bg-gray-800/60 rounded-2xl p-6 mb-6 border border-gray-700">
-            <div className="text-6xl font-bold text-cyan-400 mb-2">{score}/{totalWords}</div>
-            <p className="text-gray-400">woorden goed</p>
+          <div className="bg-slate-800/80 rounded-2xl p-6 mb-6 border border-slate-700 backdrop-blur">
+            <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 mb-1">{score}/{totalWords}</div>
+            <p className="text-gray-400 text-sm">woorden goed</p>
             <div className="flex items-center justify-center gap-4 mt-4 text-sm">
               <div className="text-center">
-                <p className="text-2xl font-bold text-white">{formatTime(elapsedMs)}</p>
-                <p className="text-gray-500">Tijd</p>
+                <p className="text-xl font-bold text-white tabular-nums">{formatTime(elapsedMs)}</p>
+                <p className="text-gray-500 text-xs">Tijd</p>
               </div>
-              <div className="w-px h-10 bg-gray-700" />
+              <div className="w-px h-8 bg-slate-700" />
               <div className="text-center">
-                <p className="text-2xl font-bold text-white">{MAX_LIVES - lives}</p>
-                <p className="text-gray-500">Fouten</p>
+                <p className="text-xl font-bold text-white">{MAX_LIVES - lives}</p>
+                <p className="text-gray-500 text-xs">Fouten</p>
               </div>
             </div>
           </div>
 
           {isNewHighscore && (
-            <div className="flex items-center justify-center gap-2 mb-6 py-3 px-6 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl border-2 border-yellow-500/50">
+            <div className="flex items-center justify-center gap-2 mb-6 py-3 px-6 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl border-2 border-yellow-500/50 animate-pulse">
               <Trophy className="w-6 h-6 text-yellow-400" />
               <span className="text-lg font-bold text-yellow-400">Nieuw record!</span>
             </div>
@@ -434,7 +471,7 @@ export function RaceGame({
 
           <button
             onClick={handleFinish}
-            className="w-full py-4 rounded-2xl bg-green-500 text-white font-bold text-lg hover:bg-green-600 active:bg-green-700 transition-colors touch-manipulation shadow-lg shadow-green-500/30"
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-bold text-lg active:scale-95 transition-transform touch-manipulation shadow-lg shadow-emerald-500/25"
           >
             Klaar
           </button>
@@ -446,33 +483,38 @@ export function RaceGame({
   // Main race screen
   return (
     <div
-      className={`min-h-full flex flex-col bg-gray-900 select-none overflow-hidden ${shake ? 'animate-shake' : ''}`}
+      className={`min-h-full flex flex-col bg-slate-900 select-none overflow-hidden ${shake ? 'animate-shake' : ''}`}
     >
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-900/95 border-b border-gray-800 z-20 relative">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-cyan-900/50 text-cyan-400 border border-cyan-800">
-              Race!
-            </span>
-            <span className="text-xs text-gray-500">{directionLabel}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
+      {/* Top HUD */}
+      <div className="flex items-center justify-between px-3 py-2 bg-slate-900/95 border-b border-slate-800 z-20 relative">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5">
             {Array.from({ length: MAX_LIVES }).map((_, i) => (
               <Heart
                 key={i}
-                className={`w-5 h-5 transition-all ${
-                  i < lives ? 'text-red-500 fill-red-500' : 'text-gray-700'
+                className={`w-5 h-5 transition-all duration-300 ${
+                  i < lives
+                    ? 'text-red-500 fill-red-500 drop-shadow-[0_0_4px_rgba(239,68,68,0.5)]'
+                    : 'text-slate-700'
                 }`}
               />
             ))}
           </div>
-          <span className="text-sm font-bold text-cyan-400 tabular-nums">{score}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {streak >= 3 && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30">
+              <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+              <span className="text-xs font-bold text-amber-400 tabular-nums">{streak}x</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/30">
+            <span className="text-sm font-bold text-cyan-400 tabular-nums">{score}</span>
+            <span className="text-xs text-cyan-600">/{totalWords}</span>
+          </div>
           <button
             onClick={onQuit}
-            className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
             aria-label="Stop"
           >
             <X className="w-5 h-5" />
@@ -480,98 +522,127 @@ export function RaceGame({
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="px-4 pt-2 pb-1 bg-gray-900 z-20 relative">
+      {/* Progress track */}
+      <div className="px-3 py-2 bg-slate-900 z-20 relative">
         <div className="flex items-center gap-2">
-          <Car className="w-4 h-4 text-gray-600" />
-          <div className="flex-1 h-3 bg-gray-800 rounded-full overflow-hidden relative">
+          <span className="text-sm">🏎️</span>
+          <div className="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden relative border border-slate-700/50">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                nitro ? 'bg-gradient-to-r from-cyan-400 to-yellow-400' : 'bg-cyan-500'
+              className={`h-full rounded-full transition-all duration-300 ${
+                nitro
+                  ? 'bg-gradient-to-r from-amber-400 via-orange-400 to-red-400'
+                  : 'bg-gradient-to-r from-cyan-500 to-blue-500'
               }`}
               style={{ width: `${progressPct}%` }}
             />
+          </div>
+          <Flag className="w-4 h-4 text-emerald-500" />
+        </div>
+      </div>
+
+      {/* Question word */}
+      <div className="text-center py-2.5 bg-slate-900 z-20 relative">
+        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-2xl bg-slate-800/80 border border-slate-700">
+          <span className="text-xl">{displayFlag}</span>
+          <h2 className="text-xl font-bold text-white">{displayWord}</h2>
+        </div>
+        <p className="text-[10px] text-slate-500 mt-1">{directionLabel}</p>
+      </div>
+
+      {/* Race track area */}
+      <div className="flex-1 relative overflow-hidden" style={{ minHeight: '280px' }}>
+        {/* Grass background */}
+        <div className="absolute inset-0 bg-emerald-900/40" />
+
+        {/* Road */}
+        <div className="absolute inset-x-[12%] inset-y-0 bg-slate-700 shadow-[inset_0_0_30px_rgba(0,0,0,0.3)]">
+          {/* Road edge lines */}
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-white/30 to-white/10" />
+          <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-white/30 to-white/10" />
+
+          {/* Lane divider — animated dashes */}
+          <div className="absolute left-1/2 -translate-x-px top-0 bottom-0 w-1 overflow-hidden">
+            {Array.from({ length: 20 }).map((_, i) => (
+              <div
+                key={i}
+                className="w-full h-6 bg-yellow-400/70 mb-6 rounded-sm"
+                style={{ transform: `translateY(${roadOffset}px)` }}
+              />
+            ))}
+          </div>
+
+          {/* Subtle lane shading for left/right */}
+          <div className="absolute left-0 top-0 bottom-0 w-1/2 bg-white/[0.02]" />
+        </div>
+
+        {/* Grass edge decorations */}
+        <div className="absolute left-0 top-0 bottom-0 w-[12%] overflow-hidden">
+          {scenery.filter(s => s.side === 'left').map((item, i) => (
             <div
-              className="absolute top-1/2 -translate-y-1/2 transition-all duration-500"
-              style={{ left: `calc(${Math.min(progressPct, 97)}% - 8px)` }}
+              key={`l-${i}`}
+              className="absolute right-2 text-lg opacity-70"
+              style={{ top: `${(item.offsetY + roadOffset * 2) % 800}px` }}
             >
-              <Car className="w-4 h-4 text-white drop-shadow-[0_0_4px_rgba(34,211,238,0.8)]" />
+              {item.emoji}
             </div>
-          </div>
-          <Flag className="w-4 h-4 text-green-500" />
+          ))}
         </div>
-        {streak >= 3 && (
-          <div className="flex items-center justify-center gap-1 mt-1">
-            <Zap className="w-3 h-3 text-yellow-400" />
-            <span className="text-[10px] font-bold text-yellow-400">{streak}x streak — sneller!</span>
-          </div>
-        )}
-      </div>
-
-      {/* Question */}
-      <div className="text-center py-3 bg-gray-900 z-20 relative">
-        <span className="text-2xl">{displayFlag}</span>
-        <h2 className="text-2xl font-bold text-white mt-1">{displayWord}</h2>
-      </div>
-
-      {/* Race track */}
-      <div className="flex-1 relative overflow-hidden" style={{ minHeight: '300px' }}>
-        {/* Road background */}
-        <div className="absolute inset-0 bg-gray-800">
-          <div className="absolute inset-x-[10%] inset-y-0 bg-gray-700 rounded-t-lg">
-            {/* Center dashed line */}
-            <div className="absolute left-1/2 -translate-x-px top-0 bottom-0 w-0.5 overflow-hidden">
-              {Array.from({ length: 20 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="w-full h-5 bg-yellow-400/60 mb-5"
-                  style={{ transform: `translateY(${roadOffset}px)` }}
-                />
-              ))}
+        <div className="absolute right-0 top-0 bottom-0 w-[12%] overflow-hidden">
+          {scenery.filter(s => s.side === 'right').map((item, i) => (
+            <div
+              key={`r-${i}`}
+              className="absolute left-2 text-lg opacity-70"
+              style={{ top: `${(item.offsetY + roadOffset * 2) % 800}px` }}
+            >
+              {item.emoji}
             </div>
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/20" />
-            <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/20" />
-          </div>
+          ))}
         </div>
 
-        {/* Gates */}
+        {/* Gates — NEUTRAL colors (no green/red giveaway!) */}
         {gate && (
           <div
-            className="absolute left-[10%] right-[10%] flex z-10"
+            className="absolute left-[12%] right-[12%] flex z-10"
             style={{ top: `${gate.y}%`, transform: 'translateY(-50%)' }}
           >
             <div className="w-1/2 flex justify-center px-2">
-              <div className={`px-4 py-3 rounded-xl text-center font-bold text-sm sm:text-base min-w-[80px] shadow-lg border-2 ${
-                gate.correctOnLeft
-                  ? 'bg-green-500/20 border-green-500/50 text-green-300 shadow-green-500/20'
-                  : 'bg-red-500/20 border-red-500/50 text-red-300 shadow-red-500/20'
-              }`}>
+              <div className="px-4 py-2.5 rounded-xl text-center font-bold text-sm sm:text-base min-w-[80px] bg-slate-800/90 border-2 border-cyan-500/40 text-white shadow-lg shadow-cyan-500/10 backdrop-blur-sm">
                 {gate.correctOnLeft ? gate.correctAnswer : gate.wrongAnswer}
               </div>
             </div>
             <div className="w-1/2 flex justify-center px-2">
-              <div className={`px-4 py-3 rounded-xl text-center font-bold text-sm sm:text-base min-w-[80px] shadow-lg border-2 ${
-                !gate.correctOnLeft
-                  ? 'bg-green-500/20 border-green-500/50 text-green-300 shadow-green-500/20'
-                  : 'bg-red-500/20 border-red-500/50 text-red-300 shadow-red-500/20'
-              }`}>
+              <div className="px-4 py-2.5 rounded-xl text-center font-bold text-sm sm:text-base min-w-[80px] bg-slate-800/90 border-2 border-cyan-500/40 text-white shadow-lg shadow-cyan-500/10 backdrop-blur-sm">
                 {!gate.correctOnLeft ? gate.correctAnswer : gate.wrongAnswer}
               </div>
             </div>
           </div>
         )}
 
+        {/* Flash overlay on correct/wrong */}
+        {flashResult && (
+          <div
+            className={`absolute inset-0 z-20 pointer-events-none transition-opacity duration-300 ${
+              flashResult === 'correct'
+                ? 'bg-emerald-500/15'
+                : 'bg-red-500/20'
+            }`}
+            style={{ animation: 'flash-fade 0.5s ease-out forwards' }}
+          />
+        )}
+
         {/* Finish line */}
         {showFinishLine && (
           <div
-            className="absolute left-[10%] right-[10%] h-8 z-10"
+            className="absolute left-[12%] right-[12%] h-8 z-10"
             style={{ top: `${finishLineY}%`, transform: 'translateY(-50%)' }}
           >
             <div className="w-full h-full flex">
               {Array.from({ length: 16 }).map((_, i) => (
                 <div
                   key={i}
-                  className={`flex-1 h-full ${i % 2 === 0 ? 'bg-white' : 'bg-black'}`}
+                  className={`flex-1 h-full ${
+                    (Math.floor(i / 1) + Math.floor(0 / 1)) % 2 === 0 ? 'bg-white' : 'bg-slate-900'
+                  }`}
                 />
               ))}
             </div>
@@ -583,48 +654,54 @@ export function RaceGame({
           className="absolute z-10 transition-all duration-150 ease-out"
           style={{
             top: `${GATE_HIT_ZONE}%`,
-            left: lane === 'left' ? '30%' : '70%',
+            left: lane === 'left' ? '31%' : '69%',
             transform: 'translate(-50%, -50%)',
           }}
         >
-          <div className={`relative ${nitro ? 'animate-pulse' : ''}`}>
+          <div className="relative">
+            {/* Nitro flame */}
             {nitro && (
-              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-6 h-8 bg-gradient-to-t from-transparent via-orange-500/60 to-yellow-400/80 rounded-full blur-sm animate-pulse" />
+              <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                <div className="w-4 h-6 bg-gradient-to-t from-transparent via-orange-500/70 to-yellow-300/90 rounded-full blur-[2px] animate-pulse" />
+              </div>
             )}
-            <Car
-              className={`w-10 h-10 sm:w-12 sm:h-12 drop-shadow-lg transition-colors ${
-                nitro
-                  ? 'text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.8)]'
-                  : 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]'
-              }`}
-            />
+            {/* Glow under car */}
+            <div className={`absolute inset-0 rounded-full blur-xl transition-colors duration-200 ${
+              nitro ? 'bg-amber-400/30' : 'bg-cyan-400/20'
+            }`} />
+            {/* Car emoji */}
+            <div className={`text-4xl sm:text-5xl transition-transform duration-150 ${
+              nitro ? 'scale-110' : ''
+            }`} style={{ filter: nitro ? 'drop-shadow(0 0 12px rgba(250,204,21,0.6))' : 'drop-shadow(0 0 8px rgba(34,211,238,0.4))' }}>
+              🏎️
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex z-20 relative">
+      {/* Lane controls */}
+      <div className="flex z-20 relative gap-px bg-slate-800">
         <button
           onPointerDown={() => setLane('left')}
-          className={`flex-1 py-6 text-center font-bold text-lg transition-all touch-manipulation active:bg-gray-700/50 ${
+          className={`flex-1 py-5 flex flex-col items-center justify-center transition-all duration-150 touch-manipulation active:scale-95 ${
             lane === 'left'
-              ? 'bg-cyan-900/30 text-cyan-400 border-t-2 border-cyan-500'
-              : 'bg-gray-800/50 text-gray-500 border-t border-gray-700'
+              ? 'bg-cyan-500/15 border-t-2 border-cyan-400'
+              : 'bg-slate-900 border-t-2 border-transparent'
           }`}
         >
-          <span className="text-2xl">&#x25C0;</span>
-          <span className="block text-xs mt-1">Links</span>
+          <span className={`text-3xl transition-transform duration-150 ${lane === 'left' ? 'scale-110' : ''}`}>👈</span>
+          <span className={`text-xs font-semibold mt-0.5 ${lane === 'left' ? 'text-cyan-400' : 'text-slate-600'}`}>Links</span>
         </button>
         <button
           onPointerDown={() => setLane('right')}
-          className={`flex-1 py-6 text-center font-bold text-lg transition-all touch-manipulation active:bg-gray-700/50 ${
+          className={`flex-1 py-5 flex flex-col items-center justify-center transition-all duration-150 touch-manipulation active:scale-95 ${
             lane === 'right'
-              ? 'bg-cyan-900/30 text-cyan-400 border-t-2 border-cyan-500'
-              : 'bg-gray-800/50 text-gray-500 border-t border-gray-700'
+              ? 'bg-cyan-500/15 border-t-2 border-cyan-400'
+              : 'bg-slate-900 border-t-2 border-transparent'
           }`}
         >
-          <span className="text-2xl">&#x25B6;</span>
-          <span className="block text-xs mt-1">Rechts</span>
+          <span className={`text-3xl transition-transform duration-150 ${lane === 'right' ? 'scale-110' : ''}`}>👉</span>
+          <span className={`text-xs font-semibold mt-0.5 ${lane === 'right' ? 'text-cyan-400' : 'text-slate-600'}`}>Rechts</span>
         </button>
       </div>
 
@@ -649,6 +726,17 @@ export function RaceGame({
         }
         .animate-bounce-in {
           animation: bounce-in 0.6s ease-out;
+        }
+        @keyframes flash-fade {
+          0% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes spin-slow {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 3s linear infinite;
         }
       `}</style>
     </div>
