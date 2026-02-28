@@ -16,16 +16,9 @@ const GATE_HIT_ZONE = 75;
 const PARTICLE_COUNT = 14;
 const PARTICLE_DURATION = 700;
 
-// Road geometry — OutRun-style converging road
-const VANISH_Y = 12; // horizon line (% from top)
-const ROAD_TOP_HW = 3; // road half-width at horizon
-const ROAD_BOT_HW = 46; // road half-width at bottom
-
-function roadHalfWidth(yPct: number): number {
-  if (yPct <= VANISH_Y) return ROAD_TOP_HW;
-  const t = (yPct - VANISH_Y) / (100 - VANISH_Y);
-  return ROAD_TOP_HW + (ROAD_BOT_HW - ROAD_TOP_HW) * Math.pow(t, 0.7);
-}
+// Lane X positions (% from left)
+const LEFT_LANE = 25;
+const RIGHT_LANE = 75;
 
 interface RaceWord {
   word: Word;
@@ -89,20 +82,6 @@ export function RaceGame({
     return queue;
   }, [words]);
 
-  // Pre-computed road geometry
-  const road = useMemo(() => {
-    const clipRoad = `polygon(${50 - ROAD_TOP_HW}% ${VANISH_Y}%, ${50 + ROAD_TOP_HW}% ${VANISH_Y}%, ${50 + ROAD_BOT_HW}% 100%, ${50 - ROAD_BOT_HW}% 100%)`;
-    const clipCurb = `polygon(${50 - ROAD_TOP_HW - 1.5}% ${VANISH_Y}%, ${50 + ROAD_TOP_HW + 1.5}% ${VANISH_Y}%, ${50 + ROAD_BOT_HW + 1.5}% 100%, ${50 - ROAD_BOT_HW - 1.5}% 100%)`;
-    const carHW = roadHalfWidth(GATE_HIT_ZONE);
-    return {
-      clipRoad,
-      clipCurb,
-      carLeftLane: 50 - carHW * 0.5,
-      carRightLane: 50 + carHW * 0.5,
-    };
-  }, []);
-
-  // Render state
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
   const [score, setScore] = useState(0);
@@ -115,7 +94,7 @@ export function RaceGame({
   const [finishLineY, setFinishLineY] = useState(-20);
   const [nitro, setNitro] = useState(false);
   const [shake, setShake] = useState(false);
-  const [roadOffset, setRoadOffset] = useState(0);
+  const [scrollOffset, setScrollOffset] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [flashResult, setFlashResult] = useState<'correct' | 'wrong' | null>(null);
   const [paused, setPaused] = useState(false);
@@ -124,7 +103,6 @@ export function RaceGame({
   const pausedRef = useRef(false);
   const scorePopupKeyRef = useRef(0);
 
-  // Refs for values accessed inside requestAnimationFrame
   const laneRef = useRef(lane);
   const currentIndexRef = useRef(currentIndex);
   const livesRef = useRef(lives);
@@ -142,7 +120,6 @@ export function RaceGame({
   const nitroTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTimeRef = useRef(Date.now());
 
-  // Keep refs in sync
   laneRef.current = lane;
   currentIndexRef.current = currentIndex;
   livesRef.current = lives;
@@ -178,14 +155,12 @@ export function RaceGame({
   const totalWords = raceQueue.length;
   const progressPct = totalWords > 0 ? (currentIndex / totalWords) * 100 : 0;
 
-  // Speak word when it changes
   useEffect(() => {
     if (ttsEnabled && displayWord && !gameOver && !raceFinished) {
       speakWord(displayWord, displayLanguage);
     }
   }, [ttsEnabled, currentIndex, displayWord, displayLanguage, gameOver, raceFinished]);
 
-  // Spawn gate for current word
   useEffect(() => {
     if (gameOver || raceFinished || !current) return;
     const correctOnLeft = Math.random() < 0.5;
@@ -199,7 +174,6 @@ export function RaceGame({
     gateProcessedRef.current = false;
   }, [currentIndex, gameOver, raceFinished, current]);
 
-  // Speed scales gently with streak
   useEffect(() => {
     if (nitro) {
       speedRef.current = NITRO_SPEED;
@@ -208,7 +182,6 @@ export function RaceGame({
     }
   }, [streak, nitro]);
 
-  // Clear flash result
   useEffect(() => {
     if (flashResult) {
       const t = setTimeout(() => setFlashResult(null), 500);
@@ -216,7 +189,6 @@ export function RaceGame({
     }
   }, [flashResult]);
 
-  // Clear particles
   useEffect(() => {
     if (particles.length > 0) {
       const t = setTimeout(() => setParticles([]), PARTICLE_DURATION);
@@ -224,7 +196,6 @@ export function RaceGame({
     }
   }, [particles]);
 
-  // Clear score popup
   useEffect(() => {
     if (scorePopup) {
       const t = setTimeout(() => setScorePopup(null), 800);
@@ -232,17 +203,12 @@ export function RaceGame({
     }
   }, [scorePopup]);
 
-  // Stable callbacks for animation loop
   const processCorrect = useCallback(() => {
     const idx = currentIndexRef.current;
     const cur = raceQueue[idx];
     if (!cur) return;
 
-    resultsRef.current.push({
-      wordId: cur.word.id,
-      direction: cur.direction,
-      result: 'correct',
-    });
+    resultsRef.current.push({ wordId: cur.word.id, direction: cur.direction, result: 'correct' });
     if (soundEnabledRef.current) playCorrectSound();
     if (navigator.vibrate) navigator.vibrate(50);
 
@@ -250,7 +216,6 @@ export function RaceGame({
     setStreak((prev) => prev + 1);
     setFlashResult('correct');
 
-    // Spawn particles
     const colors = ['#10b981', '#34d399', '#6ee7b7', '#fbbf24', '#22d3ee', '#ffffff'];
     setParticles(Array.from({ length: PARTICLE_COUNT }).map((_, i) => ({
       id: Date.now() + i,
@@ -259,11 +224,9 @@ export function RaceGame({
       color: colors[i % colors.length],
     })));
 
-    // Score popup
     scorePopupKeyRef.current++;
     setScorePopup({ key: scorePopupKeyRef.current, value: streakRef.current + 1 });
 
-    // Nitro effect
     setNitro(true);
     if (nitroTimeoutRef.current) clearTimeout(nitroTimeoutRef.current);
     nitroTimeoutRef.current = setTimeout(() => setNitro(false), NITRO_DURATION);
@@ -282,11 +245,7 @@ export function RaceGame({
     const cur = raceQueue[idx];
     if (!cur) return;
 
-    resultsRef.current.push({
-      wordId: cur.word.id,
-      direction: cur.direction,
-      result: 'wrong',
-    });
+    resultsRef.current.push({ wordId: cur.word.id, direction: cur.direction, result: 'wrong' });
     if (soundEnabledRef.current) playWrongSound();
     if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
 
@@ -300,11 +259,7 @@ export function RaceGame({
 
     if (newLives <= 0) {
       for (let i = idx + 1; i < raceQueue.length; i++) {
-        resultsRef.current.push({
-          wordId: raceQueue[i].word.id,
-          direction: raceQueue[i].direction,
-          result: 'wrong',
-        });
+        resultsRef.current.push({ wordId: raceQueue[i].word.id, direction: raceQueue[i].direction, result: 'wrong' });
       }
       setLives(0);
       setGameOver(true);
@@ -342,7 +297,7 @@ export function RaceGame({
       const speed = speedRef.current;
       const movement = speed * (dt / 16.67);
 
-      setRoadOffset((prev) => (prev + movement * 4) % 40);
+      setScrollOffset((prev) => (prev + movement * 4) % 40);
       setElapsedMs(Date.now() - startTimeRef.current);
 
       setGate((prev) => {
@@ -356,11 +311,8 @@ export function RaceGame({
             (currentLane === 'right' && !prev.correctOnLeft);
 
           setTimeout(() => {
-            if (carIsCorrect) {
-              processCorrect();
-            } else {
-              processWrong();
-            }
+            if (carIsCorrect) processCorrect();
+            else processWrong();
           }, 0);
         }
 
@@ -383,16 +335,11 @@ export function RaceGame({
     };
 
     animFrameRef.current = requestAnimationFrame(tick);
-    return () => {
-      running = false;
-      cancelAnimationFrame(animFrameRef.current);
-    };
+    return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
   }, [processCorrect, processWrong]);
 
   useEffect(() => {
-    if (gameOver || raceFinished) {
-      cancelAnimationFrame(animFrameRef.current);
-    }
+    if (gameOver || raceFinished) cancelAnimationFrame(animFrameRef.current);
   }, [gameOver, raceFinished]);
 
   useEffect(() => {
@@ -509,18 +456,13 @@ export function RaceGame({
     );
   }
 
-  // Gate depth calculations — positioned at converging road lanes
-  const gateHW = gate ? roadHalfWidth(Math.max(VANISH_Y, gate.y)) : 0;
-  const gateLeftLane = 50 - gateHW * 0.5;
-  const gateRightLane = 50 + gateHW * 0.5;
-  const gateDepth = gate ? Math.max(0, gate.y - VANISH_Y) / (GATE_HIT_ZONE - VANISH_Y) : 0;
-  const gateScale = 0.55 + Math.min(1, gateDepth) * 0.45;
-  const gateOpacity = gate && gate.y < VANISH_Y ? 0 : 0.4 + Math.min(1, gateDepth) * 0.6;
+  // Gate approach calculations — simple scale + opacity
+  const gateProgress = gate ? Math.max(0, gate.y) / GATE_HIT_ZONE : 0;
+  const gateScale = 0.6 + gateProgress * 0.4;
+  const gateOpacity = gate && gate.y < 0 ? 0 : 0.5 + Math.min(1, gateProgress) * 0.5;
 
-  // Finish line depth
-  const finishHW = roadHalfWidth(Math.max(VANISH_Y, finishLineY));
+  const carLaneX = lane === 'left' ? LEFT_LANE : RIGHT_LANE;
 
-  // Main race screen
   return (
     <div className={`min-h-full flex flex-col bg-slate-950 select-none overflow-hidden ${shake ? 'animate-shake' : ''}`}>
       {/* Top HUD */}
@@ -561,109 +503,73 @@ export function RaceGame({
         </div>
       </div>
 
-      {/* ===== RACE TRACK — PSEUDO-3D ===== */}
+      {/* ===== TRACK AREA ===== */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: '280px' }}>
+        {/* Dark background */}
+        <div className="absolute inset-0 bg-slate-950" />
 
-        {/* Sky */}
-        <div className="absolute inset-x-0 top-0 bottom-0 bg-gradient-to-b from-[#0a0e2a] via-[#141840] to-[#1a2235]">
-          {/* Stars */}
-          <div className="absolute top-[3%] left-[12%] w-1 h-1 bg-white/70 rounded-full star-twinkle" />
-          <div className="absolute top-[6%] left-[68%] w-0.5 h-0.5 bg-white/50 rounded-full" />
-          <div className="absolute top-[2%] left-[42%] w-1 h-1 bg-white/40 rounded-full star-twinkle-delayed" />
-          <div className="absolute top-[8%] left-[82%] w-0.5 h-0.5 bg-white/60 rounded-full" />
-          <div className="absolute top-[5%] left-[28%] w-0.5 h-0.5 bg-white/30 rounded-full star-twinkle" />
-          <div className="absolute top-[1%] left-[55%] w-1 h-1 bg-white/40 rounded-full" />
-          <div className="absolute top-[4%] left-[90%] w-0.5 h-0.5 bg-white/50 rounded-full star-twinkle-delayed" />
-          {/* Horizon glow */}
-          <div className="absolute left-0 right-0 h-16 bg-gradient-to-b from-orange-500/[0.08] via-purple-500/[0.04] to-transparent" style={{ top: `${VANISH_Y - 4}%` }} />
-        </div>
+        {/* Scrolling grid — creates motion sensation */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{
+          backgroundImage: 'linear-gradient(to right, rgba(34,211,238,1) 1px, transparent 1px), linear-gradient(to bottom, rgba(34,211,238,1) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+          backgroundPositionY: `${scrollOffset * 2}px`,
+        }} />
 
-        {/* Horizon city silhouette */}
-        <svg viewBox="0 0 200 12" preserveAspectRatio="none" className="absolute left-0 right-0 z-[1]" style={{ top: `${VANISH_Y - 3}%`, height: '4%' }}>
-          <path d="M0,12 L0,9 L8,8 L12,10 L18,7 L22,9 L26,5 L28,3 L30,5 L34,8 L40,6 L44,9 L50,7 L54,4 L56,2 L58,4 L62,7 L68,5 L72,8 L78,6 L82,9 L88,7 L92,4 L94,6 L98,3 L100,5 L102,2 L104,5 L108,7 L114,5 L118,8 L124,6 L128,9 L134,7 L138,4 L140,6 L144,8 L150,5 L154,8 L160,6 L164,9 L170,7 L174,4 L176,6 L180,8 L186,5 L190,9 L196,7 L200,9 L200,12 Z" fill="#0f172a" fillOpacity="0.9" />
-        </svg>
+        {/* Vertical side lines — subtle tunnel edges */}
+        <div className="absolute top-0 bottom-0 left-[8%] w-px bg-gradient-to-b from-transparent via-cyan-500/10 to-cyan-500/5" />
+        <div className="absolute top-0 bottom-0 right-[8%] w-px bg-gradient-to-b from-transparent via-cyan-500/10 to-cyan-500/5" />
 
-        {/* Grass surface */}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-b from-[#0d3320] to-[#1a5c3a]" style={{ top: `${VANISH_Y}%` }}>
-          {/* Scrolling grass stripes for depth */}
-          {Array.from({ length: 16 }).map((_, i) => (
-            <div key={`grass-${i}`} className="absolute left-0 right-0 bg-emerald-800/25" style={{
-              top: `${((i * 8) + (roadOffset * 0.7)) % 130 - 5}%`,
-              height: '3.5%',
-            }} />
+        {/* Center divider */}
+        <div className="absolute top-0 bottom-0 left-1/2 -translate-x-px w-0.5 overflow-hidden">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div key={`cd-${i}`} className="w-full h-5 bg-slate-700/50 mb-5" style={{ transform: `translateY(${scrollOffset}px)` }} />
           ))}
         </div>
 
-        {/* Road curb/shoulder — slightly wider trapezoid with red-white stripes */}
-        <div className="absolute inset-0 z-[2]">
-          <div className="absolute inset-0" style={{
-            clipPath: road.clipCurb,
-            background: `repeating-linear-gradient(to bottom, #dc2626 0px, #dc2626 10px, #ffffff 10px, #ffffff 20px)`,
-            backgroundPositionY: `${roadOffset * 2}px`,
+        {/* Active lane highlight */}
+        <div className={`absolute top-0 bottom-0 transition-all duration-200 ${lane === 'left' ? 'left-0 right-1/2' : 'left-1/2 right-0'}`}>
+          <div className={`absolute inset-0 transition-opacity duration-200 ${nitro ? 'bg-amber-500/[0.04]' : 'bg-cyan-500/[0.03]'}`} />
+        </div>
+
+        {/* Horizontal scan lines — scrolling down for speed feel */}
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={`hl-${i}`} className="absolute left-[10%] right-[10%] h-px bg-cyan-500/[0.06]" style={{
+            top: `${((i * 9) + scrollOffset * 0.6) % 110 - 5}%`,
           }} />
-        </div>
+        ))}
 
-        {/* Road surface — converging trapezoid */}
-        <div className="absolute inset-0 z-[3]">
-          <div className="absolute inset-0 bg-[#3a4556]" style={{ clipPath: road.clipRoad }}>
-            {/* Road segments — alternating dark bands clipped to trapezoid */}
-            {Array.from({ length: 20 }).map((_, i) => (
-              <div key={`seg-${i}`} className="absolute left-0 right-0 bg-[#333d4d]" style={{
-                top: `${((i * 7) + (roadOffset * 0.8)) % 150 - 5}%`,
-                height: '3%',
-              }} />
-            ))}
-            {/* Center lane dashes */}
-            <div className="absolute left-1/2 -translate-x-px top-0 bottom-0 w-1 overflow-hidden">
-              {Array.from({ length: 35 }).map((_, i) => (
-                <div key={`dash-${i}`} className="w-full h-4 bg-yellow-400/80 mb-4" style={{ transform: `translateY(${roadOffset}px)` }} />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Road edge lines — SVG converging lines */}
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full z-[4] pointer-events-none">
-          {/* Left edge */}
-          <line x1={50 - ROAD_TOP_HW} y1={VANISH_Y} x2={50 - ROAD_BOT_HW} y2={100} stroke="white" strokeWidth="0.35" opacity="0.5" />
-          {/* Right edge */}
-          <line x1={50 + ROAD_TOP_HW} y1={VANISH_Y} x2={50 + ROAD_BOT_HW} y2={100} stroke="white" strokeWidth="0.35" opacity="0.5" />
-        </svg>
-
-        {/* Gates — positioned at converging lane centers */}
-        {gate && gate.y > VANISH_Y - 5 && (
+        {/* Gates — two panels approaching */}
+        {gate && gate.y > -5 && (
           <>
-            {/* Left gate answer */}
-            <div className="absolute z-[6] pointer-events-none" style={{
+            {/* Left gate */}
+            <div className="absolute z-10 pointer-events-none transition-[left] duration-150" style={{
               top: `${gate.y}%`,
-              left: `${gateLeftLane}%`,
+              left: `${LEFT_LANE}%`,
               transform: `translate(-50%, -50%) scale(${gateScale})`,
               opacity: gateOpacity,
             }}>
-              <div className="px-4 py-2.5 rounded-2xl text-center font-bold text-base sm:text-lg min-w-[80px] bg-slate-900/95 border-2 border-cyan-400/60 text-white shadow-[0_0_20px_rgba(34,211,238,0.15)] backdrop-blur-sm whitespace-nowrap">
+              <div className="px-5 py-3 rounded-2xl text-center font-bold text-lg min-w-[90px] bg-slate-900/90 border-2 border-cyan-400/50 text-white shadow-[0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-sm whitespace-nowrap">
                 {gate.correctOnLeft ? gate.correctAnswer : gate.wrongAnswer}
               </div>
             </div>
-            {/* Right gate answer */}
-            <div className="absolute z-[6] pointer-events-none" style={{
+            {/* Right gate */}
+            <div className="absolute z-10 pointer-events-none transition-[left] duration-150" style={{
               top: `${gate.y}%`,
-              left: `${gateRightLane}%`,
+              left: `${RIGHT_LANE}%`,
               transform: `translate(-50%, -50%) scale(${gateScale})`,
               opacity: gateOpacity,
             }}>
-              <div className="px-4 py-2.5 rounded-2xl text-center font-bold text-base sm:text-lg min-w-[80px] bg-slate-900/95 border-2 border-cyan-400/60 text-white shadow-[0_0_20px_rgba(34,211,238,0.15)] backdrop-blur-sm whitespace-nowrap">
+              <div className="px-5 py-3 rounded-2xl text-center font-bold text-lg min-w-[90px] bg-slate-900/90 border-2 border-cyan-400/50 text-white shadow-[0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-sm whitespace-nowrap">
                 {!gate.correctOnLeft ? gate.correctAnswer : gate.wrongAnswer}
               </div>
             </div>
           </>
         )}
 
-        {/* Finish line — spans road width at its Y position */}
-        {showFinishLine && finishLineY > VANISH_Y - 5 && (
-          <div className="absolute z-[6] h-6 flex" style={{
+        {/* Finish line */}
+        {showFinishLine && finishLineY > -5 && (
+          <div className="absolute z-10 left-[10%] right-[10%] h-6 flex" style={{
             top: `${finishLineY}%`,
-            left: `${50 - finishHW}%`,
-            width: `${finishHW * 2}%`,
             transform: 'translateY(-50%)',
           }}>
             {Array.from({ length: 16 }).map((_, i) => (
@@ -673,60 +579,52 @@ export function RaceGame({
         )}
 
         {/* Car */}
-        <div className="absolute z-[7] transition-all duration-150 ease-out" style={{
+        <div className="absolute z-[11] transition-all duration-150 ease-out" style={{
           top: `${GATE_HIT_ZONE}%`,
-          left: `${lane === 'left' ? road.carLeftLane : road.carRightLane}%`,
+          left: `${carLaneX}%`,
           transform: 'translate(-50%, -50%)',
         }}>
           <div className="relative">
-            {/* Car shadow on road */}
-            <div className="absolute top-5 left-1/2 -translate-x-1/2 w-14 h-5 bg-black/40 rounded-full blur-md" />
-            {/* Nitro trail */}
+            <div className="absolute top-5 left-1/2 -translate-x-1/2 w-12 h-4 bg-black/30 rounded-full blur-md" />
             {nitro && (
               <>
                 <div className="absolute -bottom-8 left-1/2 -translate-x-1/2">
-                  <div className="w-6 h-10 bg-gradient-to-t from-transparent via-orange-500/80 to-yellow-300 rounded-full blur-[3px] animate-pulse" />
+                  <div className="w-5 h-9 bg-gradient-to-t from-transparent via-orange-500/80 to-yellow-300 rounded-full blur-[3px] animate-pulse" />
                 </div>
-                <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 w-3 h-7 bg-gradient-to-t from-transparent to-red-500/40 rounded-full blur-sm" />
+                <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-3 h-6 bg-gradient-to-t from-transparent to-red-500/40 rounded-full blur-sm" />
               </>
             )}
-            {/* Glow */}
-            <div className={`absolute -inset-5 rounded-full blur-2xl transition-colors duration-200 ${nitro ? 'bg-amber-400/40' : 'bg-cyan-400/20'}`} />
-            {/* Car */}
-            <div className={`text-6xl sm:text-7xl transition-transform duration-150 ${nitro ? 'scale-110' : ''}`} style={{
+            <div className={`absolute -inset-5 rounded-full blur-2xl transition-colors duration-200 ${nitro ? 'bg-amber-400/30' : 'bg-cyan-400/15'}`} />
+            <div className={`text-5xl sm:text-6xl transition-transform duration-150 ${nitro ? 'scale-110' : ''}`} style={{
               filter: nitro
-                ? 'drop-shadow(0 0 20px rgba(250,204,21,0.8)) drop-shadow(0 0 40px rgba(250,204,21,0.3))'
-                : 'drop-shadow(0 0 12px rgba(34,211,238,0.6)) drop-shadow(0 0 24px rgba(34,211,238,0.2))',
+                ? 'drop-shadow(0 0 16px rgba(250,204,21,0.7)) drop-shadow(0 0 30px rgba(250,204,21,0.3))'
+                : 'drop-shadow(0 0 10px rgba(34,211,238,0.5)) drop-shadow(0 0 20px rgba(34,211,238,0.2))',
             }}>
               🏎️
             </div>
           </div>
         </div>
 
-        {/* Speed lines */}
+        {/* Speed lines — along the edges */}
         {(nitro || streak >= 5) && (
           <div className="absolute inset-0 pointer-events-none z-[5] overflow-hidden">
-            {Array.from({ length: 10 }).map((_, i) => {
-              const isLeft = i % 2 === 0;
-              const xBase = isLeft ? (50 - roadHalfWidth(80) - 5 + i * 1.5) : (50 + roadHalfWidth(80) + 5 - i * 1.5);
-              return (
-                <div key={`sl-${i}`} className="absolute bg-white/10 rounded-full" style={{
-                  left: `${xBase}%`,
-                  top: `${(i * 12 + roadOffset * 5) % 130 - 15}%`,
-                  width: '2px',
-                  height: nitro ? '50px' : '25px',
-                  opacity: nitro ? 0.25 : 0.1,
-                }} />
-              );
-            })}
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={`sl-${i}`} className="absolute bg-cyan-400/10 rounded-full" style={{
+                left: i % 2 === 0 ? `${3 + i * 2}%` : `${89 - i * 2}%`,
+                top: `${(i * 15 + scrollOffset * 5) % 130 - 15}%`,
+                width: '1.5px',
+                height: nitro ? '50px' : '25px',
+                opacity: nitro ? 0.3 : 0.12,
+              }} />
+            ))}
           </div>
         )}
 
         {/* Particles */}
         {particles.length > 0 && (
-          <div className="absolute z-[8] pointer-events-none" style={{
+          <div className="absolute z-[12] pointer-events-none" style={{
             top: `${GATE_HIT_ZONE}%`,
-            left: `${lane === 'left' ? road.carLeftLane : road.carRightLane}%`,
+            left: `${carLaneX}%`,
             transform: 'translate(-50%, -50%)',
           }}>
             {particles.map((p) => (
@@ -742,7 +640,7 @@ export function RaceGame({
 
         {/* Score popup */}
         {scorePopup && (
-          <div key={scorePopup.key} className="absolute z-[9] pointer-events-none score-float-anim" style={{
+          <div key={scorePopup.key} className="absolute z-[13] pointer-events-none score-float-anim" style={{
             top: `${GATE_HIT_ZONE - 10}%`,
             left: '50%',
             transform: 'translateX(-50%)',
@@ -761,13 +659,18 @@ export function RaceGame({
 
         {/* Flash overlay */}
         {flashResult && (
-          <div className={`absolute inset-0 z-[10] pointer-events-none flash-fade-anim ${flashResult === 'correct' ? 'bg-emerald-500/20' : 'bg-red-500/25'}`}>
+          <div className={`absolute inset-0 z-[14] pointer-events-none flash-fade-anim ${flashResult === 'correct' ? 'bg-emerald-500/15' : 'bg-red-500/20'}`}>
             <div className={`absolute inset-0 ${flashResult === 'correct'
-              ? 'shadow-[inset_0_0_100px_rgba(16,185,129,0.5),inset_0_0_200px_rgba(16,185,129,0.2)]'
-              : 'shadow-[inset_0_0_100px_rgba(239,68,68,0.6),inset_0_0_200px_rgba(239,68,68,0.2)]'
+              ? 'shadow-[inset_0_0_80px_rgba(16,185,129,0.4)]'
+              : 'shadow-[inset_0_0_80px_rgba(239,68,68,0.5)]'
             }`} />
           </div>
         )}
+
+        {/* Vignette — darkened edges */}
+        <div className="absolute inset-0 pointer-events-none z-[3]" style={{
+          background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)',
+        }} />
       </div>
 
       {/* Question word */}
@@ -840,9 +743,6 @@ export function RaceGame({
           100% { transform: translateX(-50%) translateY(-60px); opacity: 0; }
         }
         .score-float-anim { animation: score-float-kf 0.8s ease-out forwards; }
-        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.8; } }
-        .star-twinkle { animation: twinkle 2s ease-in-out infinite; }
-        .star-twinkle-delayed { animation: twinkle 2.5s ease-in-out 0.8s infinite; }
       `}</style>
     </div>
   );
