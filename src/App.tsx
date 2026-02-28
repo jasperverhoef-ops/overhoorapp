@@ -103,6 +103,14 @@ export function App() {
           }
         />
         <Route
+          path="/play/:listId/self/eindtoets"
+          element={
+            <ProtectedRoute>
+              <QuizScreen />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/play/:listId/parent"
           element={
             <ProtectedRoute>

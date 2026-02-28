@@ -100,3 +100,29 @@ export function getXpProgress(xp: number): { current: number; needed: number; pe
 export function getAllLevels(): XpLevel[] {
   return [...LEVELS];
 }
+
+/** Calculate XP earned in the current week (Monday–Sunday). */
+export function calculateWeeklyXp(sessions: Session[]): number {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon
+  const diff = day === 0 ? 6 : day - 1; // days since Monday
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff);
+  monday.setHours(0, 0, 0, 0);
+  const mondayTs = monday.getTime();
+
+  return sessions
+    .filter(s => s.status === 'completed' && s.startedAt >= mondayTs)
+    .reduce((sum, s) => sum + calculateSessionXp(s), 0);
+}
+
+/** Get set of date strings (YYYY-MM-DD) on which sessions were completed. */
+export function getPlayedDates(sessions: Session[]): Set<string> {
+  const dates = new Set<string>();
+  for (const s of sessions) {
+    if (s.status === 'completed' && s.startedAt) {
+      const d = new Date(s.startedAt);
+      dates.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    }
+  }
+  return dates;
+}

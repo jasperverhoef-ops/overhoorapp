@@ -3,7 +3,7 @@ export type AnswerResult = 'correct' | 'wrong';
 export type SessionStatus = 'in-progress' | 'completed' | 'abandoned';
 export type Direction = 'source-to-dutch' | 'dutch-to-source';
 export type TrainingMode = 'self' | 'parent';
-export type GameType = 'multiple-choice' | 'typing' | 'blitz' | 'memory' | 'hangman' | 'race';
+export type GameType = 'multiple-choice' | 'typing' | 'blitz' | 'memory' | 'hangman' | 'race' | 'eindtoets';
 export type HintLevel = 0 | 1 | 2 | 3;
 
 export interface Child {
@@ -39,6 +39,7 @@ export interface Session {
   totalElapsedMs: number;
   rounds: RoundResult[];
   mode?: TrainingMode;
+  gameType?: GameType;
 }
 
 export interface RoundResult {

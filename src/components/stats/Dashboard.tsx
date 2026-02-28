@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
-import { Clock, TrendingUp, ChevronRight, Share2 } from 'lucide-react';
+import { Clock, TrendingUp, ChevronRight, ChevronDown, Share2, Zap, Grid2X2, Keyboard, LayoutGrid, Car, ClipboardCheck } from 'lucide-react';
 import { db } from '../../db';
 import { useAppStore } from '../../stores/useAppStore';
 import { Header } from '../layout/Header';
@@ -9,16 +9,29 @@ import { Card } from '../ui/Card';
 import { EmptyState } from '../ui/EmptyState';
 import { formatTime } from '../../lib/formatTime';
 import { LANGUAGE_FLAGS } from '../../models/types';
+import type { GameType } from '../../models/types';
 import { BadgeDisplay } from './BadgeDisplay';
 import { XpDisplay } from './XpDisplay';
 import { calculateBadges } from '../../models/badges';
-import { calculateTotalXp } from '../../lib/xpSystem';
+import { calculateTotalXp, calculateWeeklyXp, getPlayedDates } from '../../lib/xpSystem';
+import { getEindtoetsGrade } from '../quiz/EindtoetsGame';
+
+const ALL_GAME_TYPES: { type: GameType; label: string; icon: typeof Grid2X2 }[] = [
+  { type: 'multiple-choice', label: 'MC', icon: Grid2X2 },
+  { type: 'memory', label: 'Memory', icon: LayoutGrid },
+  { type: 'race', label: 'Race', icon: Car },
+  { type: 'hangman', label: 'Galgje', icon: Grid2X2 },
+  { type: 'blitz', label: 'Blitz', icon: Zap },
+  { type: 'typing', label: 'Typen', icon: Keyboard },
+  { type: 'eindtoets', label: 'Toets', icon: ClipboardCheck },
+];
 
 export function Dashboard() {
   const selectedChildId = useAppStore((s) => s.selectedChildId);
   const navigate = useNavigate();
   const [shareToast, setShareToast] = useState(false);
   const [now] = useState(() => Date.now());
+  const [expandedList, setExpandedList] = useState<string | null>(null);
 
   const child = useLiveQuery(
     () => (selectedChildId ? db.children.get(selectedChildId) : undefined),
@@ -51,7 +64,6 @@ export function Dashboard() {
   const totalSessions = sessions?.length ?? 0;
   const totalTime = sessions?.reduce((sum, s) => sum + s.totalElapsedMs, 0) ?? 0;
 
-  // Calculate average score across all sessions
   const allRound1Scores = (sessions ?? [])
     .flatMap((s) => s.rounds.filter((r) => r.roundNumber === 1))
     .map((r) => (r.totalWords > 0 ? r.directCorrect / r.totalWords : 0));
@@ -62,17 +74,19 @@ export function Dashboard() {
         )
       : 0;
 
-  // Recent sessions
   const recentSessions = (sessions ?? []).slice(0, 5);
-
-  // Find list names for sessions
   const listMap = new Map((lists ?? []).map((l) => [l.id, l]));
-
-  // Calculate badges and XP
   const badges = calculateBadges(sessions ?? [], lists ?? []);
   const totalXp = calculateTotalXp(sessions ?? []);
+  const weeklyXp = calculateWeeklyXp(sessions ?? []);
+  const playedDates = getPlayedDates(sessions ?? []);
 
-  // Weekly practice overview (last 7 days)
+  // 5 newest lists (by updatedAt)
+  const newestLists = [...(lists ?? [])]
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 5);
+
+  // Weekly bar chart
   const dayNames = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
   const weekData = Array.from({ length: 7 }).map((_, i) => {
     const date = new Date(now - (6 - i) * 86400000);
@@ -92,7 +106,16 @@ export function Dashboard() {
   const weekTotalMinutes = weekData.reduce((sum, d) => sum + d.minutes, 0);
   const weekMaxMinutes = Math.max(...weekData.map((d) => d.minutes), 1);
 
-  // Share results
+  // Calendar data (current month)
+  const today = new Date(now);
+  const calYear = today.getFullYear();
+  const calMonth = today.getMonth();
+  const calMonthName = today.toLocaleDateString('nl-NL', { month: 'long' });
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth + 1, 0);
+  const startOffset = (firstDay.getDay() + 6) % 7; // Monday = 0
+  const totalDays = lastDay.getDate();
+
   const handleShareResults = async () => {
     const allSessions = sessions ?? [];
     const thisWeekSessions = allSessions.filter(
@@ -109,7 +132,6 @@ export function Dashboard() {
       `Deze week: ${thisWeekSessions.length} sessies, ${Math.round(weekTime / 60000)} min`,
     ];
 
-    // Add per-list info
     if ((lists ?? []).length > 0) {
       lines.push('', 'Per lijst:');
       for (const list of lists ?? []) {
@@ -139,6 +161,17 @@ export function Dashboard() {
       // User cancelled
     }
   };
+
+  // Get played game types for a list
+  function getPlayedGameTypes(listId: string): Set<GameType> {
+    const types = new Set<GameType>();
+    for (const s of sessions ?? []) {
+      if (s.listId === listId && s.gameType) {
+        types.add(s.gameType);
+      }
+    }
+    return types;
+  }
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -194,13 +227,58 @@ export function Dashboard() {
               </Card>
             </div>
 
-            {/* XP Level */}
+            {/* XP Level + Weekly XP */}
             <XpDisplay totalXp={totalXp} />
+            {weeklyXp > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 rounded-xl border border-purple-100">
+                <Zap className="w-4 h-4 text-purple-500" />
+                <span className="text-sm font-semibold text-purple-700">{weeklyXp} XP deze week</span>
+                <span className="text-xs text-purple-400 ml-auto">Reset elke maandag</span>
+              </div>
+            )}
 
             {/* Badges */}
             <Card>
               <BadgeDisplay badges={badges} />
             </Card>
+
+            {/* Play calendar */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">
+                Speelkalender — {calMonthName}
+              </h3>
+              <Card>
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map(d => (
+                    <div key={d} className="text-[10px] font-semibold text-gray-400 pb-1">{d}</div>
+                  ))}
+                  {Array.from({ length: startOffset }).map((_, i) => (
+                    <div key={`e-${i}`} />
+                  ))}
+                  {Array.from({ length: totalDays }).map((_, i) => {
+                    const dayNum = i + 1;
+                    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                    const played = playedDates.has(dateStr);
+                    const isToday = dayNum === today.getDate();
+                    return (
+                      <div key={dayNum} className="flex items-center justify-center">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
+                          isToday && played
+                            ? 'bg-blue-500 text-white'
+                            : isToday
+                              ? 'ring-2 ring-blue-400 text-blue-600'
+                              : played
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'text-gray-400'
+                        }`}>
+                          {dayNum}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            </div>
 
             {/* Weekly overview */}
             <div>
@@ -283,52 +361,79 @@ export function Dashboard() {
               </div>
             </div>
 
-            {/* Per-list overview */}
-            {(lists ?? []).length > 0 && (
+            {/* Per-list overview with game mode progress */}
+            {newestLists.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                  Per lijst
+                  Woordenlijsten
                 </h3>
                 <div className="space-y-2">
-                  {(lists ?? []).map((list) => {
+                  {newestLists.map((list) => {
                     const listSessions = (sessions ?? []).filter(
                       (s) => s.listId === list.id
                     );
-                    const latestSession = listSessions[0];
-                    const bestRound1 = listSessions
-                      .flatMap((s) => s.rounds.filter((r) => r.roundNumber === 1))
-                      .reduce(
-                        (best, r) => {
-                          const pct = r.totalWords > 0 ? r.directCorrect / r.totalWords : 0;
-                          return pct > best ? pct : best;
-                        },
-                        0
-                      );
+                    const playedTypes = getPlayedGameTypes(list.id);
+                    const eindtoetsData = selectedChildId ? getEindtoetsGrade(selectedChildId, list.id) : null;
+                    const isExpanded = expandedList === list.id;
 
                     return (
-                      <Card
-                        key={list.id}
-                        onClick={() => navigate(`/stats/${list.id}`)}
-                      >
-                        <div className="flex items-center">
-                          <span className="text-lg mr-3">
-                            {LANGUAGE_FLAGS[list.sourceLanguage]}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 truncate">
-                              {list.name}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {listSessions.length} sessie{listSessions.length !== 1 ? 's' : ''}
-                              {latestSession && (
-                                <>
-                                  {' '}· Beste: {Math.round(bestRound1 * 100)}%
-                                </>
-                              )}
-                            </p>
+                      <Card key={list.id} className="!p-0 overflow-hidden">
+                        <button
+                          className="w-full p-3 text-left"
+                          onClick={() => setExpandedList(isExpanded ? null : list.id)}
+                        >
+                          <div className="flex items-center">
+                            <span className="text-lg mr-3">
+                              {LANGUAGE_FLAGS[list.sourceLanguage]}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">
+                                {list.name}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-gray-500">
+                                  {listSessions.length} sessie{listSessions.length !== 1 ? 's' : ''}
+                                </span>
+                                {eindtoetsData && (
+                                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
+                                    eindtoetsData.grade >= 5.5 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    Cijfer: {eindtoetsData.grade % 1 === 0 ? eindtoetsData.grade : eindtoetsData.grade.toFixed(1)}
+                                  </span>
+                                )}
+                                <span className="text-xs text-gray-400">{playedTypes.size}/{ALL_GAME_TYPES.length} modi</span>
+                              </div>
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                           </div>
-                          <ChevronRight className="w-4 h-4 text-gray-300" />
-                        </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="px-3 pb-3 border-t border-gray-100 pt-2">
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {ALL_GAME_TYPES.map(gt => {
+                                const played = playedTypes.has(gt.type);
+                                const Icon = gt.icon;
+                                return (
+                                  <div key={gt.type} className={`flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-center ${
+                                    played ? 'bg-emerald-50' : 'bg-gray-50'
+                                  }`}>
+                                    <Icon className={`w-3.5 h-3.5 ${played ? 'text-emerald-500' : 'text-gray-300'}`} />
+                                    <span className={`text-[10px] font-medium ${played ? 'text-emerald-700' : 'text-gray-400'}`}>
+                                      {gt.label}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <button
+                              onClick={() => navigate(`/stats/${list.id}`)}
+                              className="w-full mt-2 text-center text-xs font-medium text-blue-600 py-1.5 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                              Bekijk details
+                            </button>
+                          </div>
+                        )}
                       </Card>
                     );
                   })}

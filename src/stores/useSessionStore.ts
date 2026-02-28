@@ -750,6 +750,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
         totalElapsedMs: elapsed,
         rounds: active.roundResults,
         mode: active.mode,
+        gameType: active.gameType,
       });
     } catch (error) {
       console.error('Failed to save session:', error);

@@ -16,6 +16,7 @@ import { MemoryGame } from './MemoryGame';
 import { BlitzGame } from './BlitzGame';
 import { HangmanGame } from './HangmanGame';
 import { RaceGame } from './RaceGame';
+import { EindtoetsGame } from './EindtoetsGame';
 import { ShowingAnswer } from './ShowingAnswer';
 import { RoundSummary } from './RoundSummary';
 import { BetweenRounds } from './BetweenRounds';
@@ -60,6 +61,7 @@ export function QuizScreen() {
     if (path.includes('/memory')) return 'memory';
     if (path.includes('/hangman')) return 'hangman';
     if (path.includes('/race')) return 'race';
+    if (path.includes('/eindtoets')) return 'eindtoets';
     return 'multiple-choice';
   })();
 
@@ -236,7 +238,7 @@ export function QuizScreen() {
 
   // Auto-start blitz (skip round intro) — must be before any conditional returns
   useEffect(() => {
-    if (active?.phase === 'round-intro' && (active?.gameType === 'blitz' || active?.gameType === 'race')) {
+    if (active?.phase === 'round-intro' && (active?.gameType === 'blitz' || active?.gameType === 'race' || active?.gameType === 'eindtoets')) {
       handleStartRound();
     }
   }, [active?.phase, active?.gameType, handleStartRound]);
@@ -277,7 +279,7 @@ export function QuizScreen() {
   // Render based on phase
   switch (active.phase) {
     case 'round-intro':
-      if (active.gameType === 'blitz' || active.gameType === 'race') {
+      if (active.gameType === 'blitz' || active.gameType === 'race' || active.gameType === 'eindtoets') {
         return (
           <div className="min-h-full flex items-center justify-center bg-gray-50">
             <p className="text-gray-500">Starten...</p>
@@ -375,6 +377,33 @@ export function QuizScreen() {
               <ConfirmDialog
                 title="Sessie stoppen?"
                 description="Weet je zeker dat je wilt stoppen? Je voortgang gaat verloren."
+                confirmLabel="Stoppen"
+                onConfirm={handleQuit}
+                onCancel={() => setShowQuitConfirm(false)}
+              />
+            )}
+          </>
+        );
+      }
+
+      // Eindtoets game: renders its own full-screen component
+      if (active.gameType === 'eindtoets') {
+        return (
+          <>
+            <EindtoetsGame
+              key="eindtoets"
+              words={active.allWords}
+              sourceLanguage={active.sourceLanguage}
+              childName={active.childName}
+              childId={active.childId}
+              listId={active.listId}
+              onComplete={handleBlitzComplete}
+              onQuit={() => setShowQuitConfirm(true)}
+            />
+            {showQuitConfirm && (
+              <ConfirmDialog
+                title="Toets stoppen?"
+                description="Weet je zeker dat je wilt stoppen? Je antwoorden gaan verloren."
                 confirmLabel="Stoppen"
                 onConfirm={handleQuit}
                 onCancel={() => setShowQuitConfirm(false)}

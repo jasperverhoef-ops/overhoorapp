@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Grid2X2, Keyboard, ArrowLeft, Zap, LayoutGrid, Car } from 'lucide-react';
+import { Grid2X2, Keyboard, ArrowLeft, Zap, LayoutGrid, Car, ClipboardCheck } from 'lucide-react';
 import { db } from '../db';
 import { useAppStore } from '../stores/useAppStore';
 import { LANGUAGE_FLAGS } from '../models/types';
@@ -155,6 +155,32 @@ export function SelfPlaySelectPage() {
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">Hard</span>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">Typ zelf het antwoord — je leert sneller!</p>
+            </div>
+          </button>
+
+          {/* EINDTOETS — separated with divider */}
+          <div className="relative my-3">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-gradient-to-b from-blue-50 to-white px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Toets</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => navigate(`/play/${listId}/self/eindtoets`)}
+            className="w-full flex items-center gap-3 bg-white rounded-xl p-3.5 border-2 border-slate-200 hover:border-slate-400 hover:shadow-lg active:bg-slate-50 transition-all touch-manipulation text-left"
+          >
+            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <ClipboardCheck className="w-5 h-5 text-slate-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-gray-900">Eindtoets</h3>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">Toets</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">Bereid je voor op de echte toets — je krijgt een cijfer</p>
             </div>
           </button>
 

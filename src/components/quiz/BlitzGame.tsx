@@ -94,6 +94,7 @@ export function BlitzGame({
   const startYRef = useRef(0);
   const isHorizontalRef = useRef<boolean | null>(null);
 
+  const [wrongCards, setWrongCards] = useState<{ sourceWord: string; dutchWord: string; shownTranslation: string; direction: Direction }[]>([]);
   const resultsRef = useRef<{ wordId: string; direction: Direction; result: AnswerResult }[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const processingRef = useRef(false);
@@ -175,6 +176,17 @@ export function BlitzGame({
     } else {
       setCombo(0);
       setSwipeResult('wrong');
+      const correctTranslation = current.direction === 'source-to-dutch' ? current.word.dutchWord : current.word.sourceWord;
+      setWrongCards(prev => {
+        if (prev.some(w => w.sourceWord === current.word.sourceWord && w.dutchWord === current.word.dutchWord)) return prev;
+        return [...prev, {
+          sourceWord: current.word.sourceWord,
+          dutchWord: current.word.dutchWord,
+          shownTranslation: current.shownTranslation,
+          direction: current.direction,
+          correctTranslation,
+        }];
+      });
       if (soundEnabled) playWrongSound();
       if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
     }
@@ -285,9 +297,25 @@ export function BlitzGame({
             </div>
           ) : null}
 
+          {wrongCards.length > 0 && (
+            <div className="w-full mt-4 text-left">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Foute woorden ({wrongCards.length})
+              </h3>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {wrongCards.map((w, i) => (
+                  <div key={i} className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-sm">
+                    <span className="font-medium text-gray-900">{w.sourceWord}</span>
+                    <span className="text-gray-500">{w.dutchWord}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <button
             onClick={handleFinish}
-            className="w-full py-4 rounded-2xl bg-orange-500 text-white font-bold text-lg hover:bg-orange-600 active:bg-orange-700 transition-colors touch-manipulation"
+            className="w-full mt-6 py-4 rounded-2xl bg-orange-500 text-white font-bold text-lg hover:bg-orange-600 active:bg-orange-700 transition-colors touch-manipulation"
           >
             Klaar
           </button>
