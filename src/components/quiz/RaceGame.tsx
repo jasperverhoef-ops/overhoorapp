@@ -16,6 +16,17 @@ const GATE_HIT_ZONE = 75;
 const PARTICLE_COUNT = 14;
 const PARTICLE_DURATION = 700;
 
+// Road geometry — OutRun-style converging road
+const VANISH_Y = 12; // horizon line (% from top)
+const ROAD_TOP_HW = 3; // road half-width at horizon
+const ROAD_BOT_HW = 46; // road half-width at bottom
+
+function roadHalfWidth(yPct: number): number {
+  if (yPct <= VANISH_Y) return ROAD_TOP_HW;
+  const t = (yPct - VANISH_Y) / (100 - VANISH_Y);
+  return ROAD_TOP_HW + (ROAD_BOT_HW - ROAD_TOP_HW) * Math.pow(t, 0.7);
+}
+
 interface RaceWord {
   word: Word;
   direction: Direction;
@@ -55,9 +66,6 @@ function saveRaceHighscore(childId: string, listId: string, score: number): void
   } catch { /* ignore */ }
 }
 
-// Scenery items that scroll down the sides
-const SCENERY_ITEMS = ['🌳', '🌲', '🌿', '🪨', '🌸', '🏠', '⭐'];
-
 export function RaceGame({
   words,
   sourceLanguage,
@@ -81,13 +89,18 @@ export function RaceGame({
     return queue;
   }, [words]);
 
-  // Pre-generate scenery positions
-  const scenery = useMemo(() =>
-    Array.from({ length: 12 }).map((_, i) => ({
-      emoji: SCENERY_ITEMS[i % SCENERY_ITEMS.length],
-      side: i % 2 === 0 ? 'left' : 'right',
-      offsetY: (i * 85) % 1000,
-    })), []);
+  // Pre-computed road geometry
+  const road = useMemo(() => {
+    const clipRoad = `polygon(${50 - ROAD_TOP_HW}% ${VANISH_Y}%, ${50 + ROAD_TOP_HW}% ${VANISH_Y}%, ${50 + ROAD_BOT_HW}% 100%, ${50 - ROAD_BOT_HW}% 100%)`;
+    const clipCurb = `polygon(${50 - ROAD_TOP_HW - 1.5}% ${VANISH_Y}%, ${50 + ROAD_TOP_HW + 1.5}% ${VANISH_Y}%, ${50 + ROAD_BOT_HW + 1.5}% 100%, ${50 - ROAD_BOT_HW - 1.5}% 100%)`;
+    const carHW = roadHalfWidth(GATE_HIT_ZONE);
+    return {
+      clipRoad,
+      clipCurb,
+      carLeftLane: 50 - carHW * 0.5,
+      carRightLane: 50 + carHW * 0.5,
+    };
+  }, []);
 
   // Render state
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -219,7 +232,7 @@ export function RaceGame({
     }
   }, [scorePopup]);
 
-  // Stable callbacks for animation loop (use refs, no dependencies that change)
+  // Stable callbacks for animation loop
   const processCorrect = useCallback(() => {
     const idx = currentIndexRef.current;
     const cur = raceQueue[idx];
@@ -286,7 +299,6 @@ export function RaceGame({
     const newLives = currentLives - 1;
 
     if (newLives <= 0) {
-      // Game over — mark remaining words as wrong
       for (let i = idx + 1; i < raceQueue.length; i++) {
         resultsRef.current.push({
           wordId: raceQueue[i].word.id,
@@ -309,7 +321,7 @@ export function RaceGame({
     }
   }, [raceQueue]);
 
-  // Main animation loop — stable deps, uses refs for mutable state
+  // Main animation loop
   useEffect(() => {
     let running = true;
 
@@ -333,7 +345,6 @@ export function RaceGame({
       setRoadOffset((prev) => (prev + movement * 4) % 40);
       setElapsedMs(Date.now() - startTimeRef.current);
 
-      // Move gate down
       setGate((prev) => {
         if (!prev) return prev;
         const newY = prev.y + movement;
@@ -344,7 +355,6 @@ export function RaceGame({
           const carIsCorrect = (currentLane === 'left' && prev.correctOnLeft) ||
             (currentLane === 'right' && !prev.correctOnLeft);
 
-          // Schedule processing outside of setState to avoid nested updates
           setTimeout(() => {
             if (carIsCorrect) {
               processCorrect();
@@ -358,7 +368,6 @@ export function RaceGame({
         return { ...prev, y: newY };
       });
 
-      // Move finish line
       if (showFinishLineRef.current) {
         setFinishLineY((prev) => {
           const newY = prev + movement;
@@ -380,14 +389,12 @@ export function RaceGame({
     };
   }, [processCorrect, processWrong]);
 
-  // Stop animation when game ends
   useEffect(() => {
     if (gameOver || raceFinished) {
       cancelAnimationFrame(animFrameRef.current);
     }
   }, [gameOver, raceFinished]);
 
-  // Keyboard controls
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') setLane('left');
@@ -397,7 +404,6 @@ export function RaceGame({
     return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
-  // Check highscore when race ends
   useEffect(() => {
     if (gameOver || raceFinished) {
       if (score > savedHighscore) {
@@ -433,7 +439,6 @@ export function RaceGame({
           <div className="text-6xl mb-4" style={{ filter: 'grayscale(0.5)' }}>💥</div>
           <h1 className="text-3xl font-bold text-white mb-2">Game Over!</h1>
           <p className="text-gray-400 mb-6">Je levens zijn op</p>
-
           <div className="bg-slate-800/80 rounded-2xl p-6 mb-6 border border-slate-700 backdrop-blur">
             <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 mb-1">{score}/{totalWords}</div>
             <p className="text-gray-400 text-sm">woorden goed</p>
@@ -449,18 +454,13 @@ export function RaceGame({
               </div>
             </div>
           </div>
-
           {isNewHighscore && (
             <div className="flex items-center justify-center gap-2 mb-6 py-3 px-6 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl border-2 border-yellow-500/50 animate-pulse">
               <Trophy className="w-6 h-6 text-yellow-400" />
               <span className="text-lg font-bold text-yellow-400">Nieuw record!</span>
             </div>
           )}
-
-          <button
-            onClick={handleFinish}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-lg active:scale-95 transition-transform touch-manipulation shadow-lg shadow-cyan-500/25"
-          >
+          <button onClick={handleFinish} className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-lg active:scale-95 transition-transform touch-manipulation shadow-lg shadow-cyan-500/25">
             Klaar
           </button>
         </div>
@@ -476,18 +476,10 @@ export function RaceGame({
         <div className="text-center max-w-sm w-full animate-bounce-in">
           <div className="relative inline-block mb-4">
             <div className="text-7xl">{perfectRun ? '🏆' : '🏁'}</div>
-            {perfectRun && (
-              <div className="absolute -top-1 -right-3 text-2xl animate-spin-slow">⭐</div>
-            )}
+            {perfectRun && <div className="absolute -top-1 -right-3 text-2xl animate-spin-slow">⭐</div>}
           </div>
-
-          <h1 className="text-3xl font-bold text-white mb-1">
-            {perfectRun ? 'Perfect!' : 'Race Voltooid!'}
-          </h1>
-          <p className="text-emerald-400 font-semibold mb-6">
-            {perfectRun ? 'Foutloos gereden!' : `Goed gereden, ${childName}!`}
-          </p>
-
+          <h1 className="text-3xl font-bold text-white mb-1">{perfectRun ? 'Perfect!' : 'Race Voltooid!'}</h1>
+          <p className="text-emerald-400 font-semibold mb-6">{perfectRun ? 'Foutloos gereden!' : `Goed gereden, ${childName}!`}</p>
           <div className="bg-slate-800/80 rounded-2xl p-6 mb-6 border border-slate-700 backdrop-blur">
             <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 mb-1">{score}/{totalWords}</div>
             <p className="text-gray-400 text-sm">woorden goed</p>
@@ -503,18 +495,13 @@ export function RaceGame({
               </div>
             </div>
           </div>
-
           {isNewHighscore && (
             <div className="flex items-center justify-center gap-2 mb-6 py-3 px-6 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl border-2 border-yellow-500/50 animate-pulse">
               <Trophy className="w-6 h-6 text-yellow-400" />
               <span className="text-lg font-bold text-yellow-400">Nieuw record!</span>
             </div>
           )}
-
-          <button
-            onClick={handleFinish}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-bold text-lg active:scale-95 transition-transform touch-manipulation shadow-lg shadow-emerald-500/25"
-          >
+          <button onClick={handleFinish} className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-bold text-lg active:scale-95 transition-transform touch-manipulation shadow-lg shadow-emerald-500/25">
             Klaar
           </button>
         </div>
@@ -522,31 +509,26 @@ export function RaceGame({
     );
   }
 
-  // Gate depth calculations
-  const gateProgress = gate ? Math.max(0, gate.y) / GATE_HIT_ZONE : 0;
-  const gateScale = 0.3 + gateProgress * 0.7;
-  const gateOpacity = 0.15 + gateProgress * 0.85;
+  // Gate depth calculations — positioned at converging road lanes
+  const gateHW = gate ? roadHalfWidth(Math.max(VANISH_Y, gate.y)) : 0;
+  const gateLeftLane = 50 - gateHW * 0.5;
+  const gateRightLane = 50 + gateHW * 0.5;
+  const gateDepth = gate ? Math.max(0, gate.y - VANISH_Y) / (GATE_HIT_ZONE - VANISH_Y) : 0;
+  const gateScale = 0.55 + Math.min(1, gateDepth) * 0.45;
+  const gateOpacity = gate && gate.y < VANISH_Y ? 0 : 0.4 + Math.min(1, gateDepth) * 0.6;
+
+  // Finish line depth
+  const finishHW = roadHalfWidth(Math.max(VANISH_Y, finishLineY));
 
   // Main race screen
   return (
-    <div
-      className={`min-h-full flex flex-col bg-slate-950 select-none overflow-hidden ${shake ? 'animate-shake' : ''}`}
-    >
+    <div className={`min-h-full flex flex-col bg-slate-950 select-none overflow-hidden ${shake ? 'animate-shake' : ''}`}>
       {/* Top HUD */}
       <div className="flex items-center justify-between px-3 py-2 bg-slate-950/95 border-b border-slate-800/50 z-20 relative backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5">
-            {Array.from({ length: MAX_LIVES }).map((_, i) => (
-              <Heart
-                key={i}
-                className={`w-5 h-5 transition-all duration-300 ${
-                  i < lives
-                    ? 'text-red-500 fill-red-500 drop-shadow-[0_0_4px_rgba(239,68,68,0.5)]'
-                    : 'text-slate-700'
-                }`}
-              />
-            ))}
-          </div>
+        <div className="flex items-center gap-0.5">
+          {Array.from({ length: MAX_LIVES }).map((_, i) => (
+            <Heart key={i} className={`w-5 h-5 transition-all duration-300 ${i < lives ? 'text-red-500 fill-red-500 drop-shadow-[0_0_4px_rgba(239,68,68,0.5)]' : 'text-slate-700'}`} />
+          ))}
         </div>
         <div className="flex items-center gap-3">
           {streak >= 3 && (
@@ -559,18 +541,10 @@ export function RaceGame({
             <span className="text-sm font-bold text-cyan-400 tabular-nums">{score}</span>
             <span className="text-xs text-cyan-600">/{totalWords}</span>
           </div>
-          <button
-            onClick={() => setPaused(p => !p)}
-            className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
-            aria-label={paused ? 'Hervat' : 'Pauze'}
-          >
+          <button onClick={() => setPaused(p => !p)} className="p-1.5 text-slate-500 hover:text-slate-300 rounded-lg transition-colors" aria-label={paused ? 'Hervat' : 'Pauze'}>
             {paused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
           </button>
-          <button
-            onClick={onQuit}
-            className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors"
-            aria-label="Stop"
-          >
+          <button onClick={onQuit} className="p-1.5 text-slate-500 hover:text-slate-300 rounded-lg transition-colors" aria-label="Stop">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -580,305 +554,242 @@ export function RaceGame({
       <div className="px-3 py-1.5 bg-slate-950 z-20 relative">
         <div className="flex items-center gap-2">
           <span className="text-sm">🏎️</span>
-          <div className="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden relative border border-slate-700/50">
-            <div
-              className={`h-full rounded-full transition-all duration-300 ${
-                nitro
-                  ? 'bg-gradient-to-r from-amber-400 via-orange-400 to-red-400'
-                  : 'bg-gradient-to-r from-cyan-500 to-blue-500'
-              }`}
-              style={{ width: `${progressPct}%` }}
-            />
+          <div className="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+            <div className={`h-full rounded-full transition-all duration-300 ${nitro ? 'bg-gradient-to-r from-amber-400 via-orange-400 to-red-400' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}`} style={{ width: `${progressPct}%` }} />
           </div>
           <Flag className="w-4 h-4 text-emerald-500" />
         </div>
       </div>
 
-      {/* Race track area — 3D perspective */}
+      {/* ===== RACE TRACK — PSEUDO-3D ===== */}
       <div className="flex-1 relative overflow-hidden" style={{ minHeight: '280px' }}>
-        {/* Sky gradient background */}
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-b from-indigo-950 via-slate-900 to-slate-800" />
+
+        {/* Sky */}
+        <div className="absolute inset-x-0 top-0 bottom-0 bg-gradient-to-b from-[#0a0e2a] via-[#141840] to-[#1a2235]">
           {/* Stars */}
-          <div className="absolute top-[5%] left-[15%] w-1 h-1 bg-white/60 rounded-full" />
-          <div className="absolute top-[8%] left-[70%] w-0.5 h-0.5 bg-white/40 rounded-full" />
-          <div className="absolute top-[3%] left-[45%] w-1 h-1 bg-white/50 rounded-full" />
-          <div className="absolute top-[12%] left-[85%] w-0.5 h-0.5 bg-white/30 rounded-full" />
-          <div className="absolute top-[6%] left-[30%] w-0.5 h-0.5 bg-white/40 rounded-full" />
-          <div className="absolute top-[2%] left-[60%] w-1 h-1 bg-white/30 rounded-full star-twinkle" />
-          <div className="absolute top-[10%] left-[20%] w-0.5 h-0.5 bg-white/50 rounded-full star-twinkle-delayed" />
+          <div className="absolute top-[3%] left-[12%] w-1 h-1 bg-white/70 rounded-full star-twinkle" />
+          <div className="absolute top-[6%] left-[68%] w-0.5 h-0.5 bg-white/50 rounded-full" />
+          <div className="absolute top-[2%] left-[42%] w-1 h-1 bg-white/40 rounded-full star-twinkle-delayed" />
+          <div className="absolute top-[8%] left-[82%] w-0.5 h-0.5 bg-white/60 rounded-full" />
+          <div className="absolute top-[5%] left-[28%] w-0.5 h-0.5 bg-white/30 rounded-full star-twinkle" />
+          <div className="absolute top-[1%] left-[55%] w-1 h-1 bg-white/40 rounded-full" />
+          <div className="absolute top-[4%] left-[90%] w-0.5 h-0.5 bg-white/50 rounded-full star-twinkle-delayed" />
           {/* Horizon glow */}
-          <div className="absolute top-[15%] left-0 right-0 h-20 bg-gradient-to-b from-orange-500/[0.06] via-amber-500/[0.03] to-transparent" />
+          <div className="absolute left-0 right-0 h-16 bg-gradient-to-b from-orange-500/[0.08] via-purple-500/[0.04] to-transparent" style={{ top: `${VANISH_Y - 4}%` }} />
         </div>
 
-        {/* 3D Perspective container */}
-        <div className="absolute inset-0" style={{ perspective: '600px', perspectiveOrigin: '50% 90%' }}>
-          {/* Road surface — tilted into the distance */}
-          <div
-            className="absolute inset-0"
-            style={{
-              transform: 'rotateX(28deg)',
-              transformOrigin: '50% 100%',
-            }}
-          >
-            {/* Grass/terrain sides */}
-            <div className="absolute left-0 top-0 bottom-0 w-[15%] bg-gradient-to-b from-emerald-950/80 via-emerald-900/60 to-emerald-800/40 overflow-hidden">
-              {/* Grass edge marking */}
-              <div className="absolute right-0 top-0 bottom-0 w-2 bg-gradient-to-b from-red-500/40 via-white/30 to-white/20" />
-              {scenery.filter(s => s.side === 'left').map((item, i) => (
-                <div
-                  key={`l-${i}`}
-                  className="absolute right-4 text-base opacity-50"
-                  style={{ top: `${(item.offsetY + roadOffset * 2) % 800}px` }}
-                >
-                  {item.emoji}
-                </div>
+        {/* Horizon city silhouette */}
+        <svg viewBox="0 0 200 12" preserveAspectRatio="none" className="absolute left-0 right-0 z-[1]" style={{ top: `${VANISH_Y - 3}%`, height: '4%' }}>
+          <path d="M0,12 L0,9 L8,8 L12,10 L18,7 L22,9 L26,5 L28,3 L30,5 L34,8 L40,6 L44,9 L50,7 L54,4 L56,2 L58,4 L62,7 L68,5 L72,8 L78,6 L82,9 L88,7 L92,4 L94,6 L98,3 L100,5 L102,2 L104,5 L108,7 L114,5 L118,8 L124,6 L128,9 L134,7 L138,4 L140,6 L144,8 L150,5 L154,8 L160,6 L164,9 L170,7 L174,4 L176,6 L180,8 L186,5 L190,9 L196,7 L200,9 L200,12 Z" fill="#0f172a" fillOpacity="0.9" />
+        </svg>
+
+        {/* Grass surface */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-b from-[#0d3320] to-[#1a5c3a]" style={{ top: `${VANISH_Y}%` }}>
+          {/* Scrolling grass stripes for depth */}
+          {Array.from({ length: 16 }).map((_, i) => (
+            <div key={`grass-${i}`} className="absolute left-0 right-0 bg-emerald-800/25" style={{
+              top: `${((i * 8) + (roadOffset * 0.7)) % 130 - 5}%`,
+              height: '3.5%',
+            }} />
+          ))}
+        </div>
+
+        {/* Road curb/shoulder — slightly wider trapezoid with red-white stripes */}
+        <div className="absolute inset-0 z-[2]">
+          <div className="absolute inset-0" style={{
+            clipPath: road.clipCurb,
+            background: `repeating-linear-gradient(to bottom, #dc2626 0px, #dc2626 10px, #ffffff 10px, #ffffff 20px)`,
+            backgroundPositionY: `${roadOffset * 2}px`,
+          }} />
+        </div>
+
+        {/* Road surface — converging trapezoid */}
+        <div className="absolute inset-0 z-[3]">
+          <div className="absolute inset-0 bg-[#3a4556]" style={{ clipPath: road.clipRoad }}>
+            {/* Road segments — alternating dark bands clipped to trapezoid */}
+            {Array.from({ length: 20 }).map((_, i) => (
+              <div key={`seg-${i}`} className="absolute left-0 right-0 bg-[#333d4d]" style={{
+                top: `${((i * 7) + (roadOffset * 0.8)) % 150 - 5}%`,
+                height: '3%',
+              }} />
+            ))}
+            {/* Center lane dashes */}
+            <div className="absolute left-1/2 -translate-x-px top-0 bottom-0 w-1 overflow-hidden">
+              {Array.from({ length: 35 }).map((_, i) => (
+                <div key={`dash-${i}`} className="w-full h-4 bg-yellow-400/80 mb-4" style={{ transform: `translateY(${roadOffset}px)` }} />
               ))}
-            </div>
-            <div className="absolute right-0 top-0 bottom-0 w-[15%] bg-gradient-to-b from-emerald-950/80 via-emerald-900/60 to-emerald-800/40 overflow-hidden">
-              <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-red-500/40 via-white/30 to-white/20" />
-              {scenery.filter(s => s.side === 'right').map((item, i) => (
-                <div
-                  key={`r-${i}`}
-                  className="absolute left-4 text-base opacity-50"
-                  style={{ top: `${(item.offsetY + roadOffset * 2) % 800}px` }}
-                >
-                  {item.emoji}
-                </div>
-              ))}
-            </div>
-
-            {/* Road surface */}
-            <div className="absolute inset-x-[15%] inset-y-0 bg-gradient-to-b from-slate-600 to-slate-700 overflow-hidden shadow-[inset_0_0_40px_rgba(0,0,0,0.3)]">
-              {/* Road segments — alternating bands for depth perception */}
-              {Array.from({ length: 24 }).map((_, i) => (
-                <div
-                  key={`seg-${i}`}
-                  className="absolute left-0 right-0 bg-black/[0.06]"
-                  style={{
-                    top: `${((i * 7) + (roadOffset * 0.8)) % 180 - 10}%`,
-                    height: '3.5%',
-                  }}
-                />
-              ))}
-
-              {/* Lane divider — animated dashes */}
-              <div className="absolute left-1/2 -translate-x-px top-0 bottom-0 w-1.5 overflow-hidden">
-                {Array.from({ length: 30 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-full h-5 bg-yellow-400/80 mb-5 rounded-sm"
-                    style={{ transform: `translateY(${roadOffset}px)` }}
-                  />
-                ))}
-              </div>
-
-              {/* Subtle lane shading */}
-              <div className="absolute left-0 top-0 bottom-0 w-1/2 bg-white/[0.015]" />
-            </div>
-
-            {/* Gates — approaching with depth scaling */}
-            {gate && (
-              <div
-                className="absolute left-[15%] right-[15%] flex z-10"
-                style={{
-                  top: `${gate.y}%`,
-                  transform: `translateY(-50%) scale(${gateScale})`,
-                  opacity: gateOpacity,
-                  transition: 'opacity 0.05s linear',
-                }}
-              >
-                <div className="w-1/2 flex justify-center px-2">
-                  <div className="px-5 py-3 rounded-2xl text-center font-bold text-sm sm:text-base min-w-[90px] bg-slate-800/95 border-2 border-violet-400/50 text-white shadow-lg shadow-violet-500/20 backdrop-blur-sm">
-                    {gate.correctOnLeft ? gate.correctAnswer : gate.wrongAnswer}
-                  </div>
-                </div>
-                <div className="w-1/2 flex justify-center px-2">
-                  <div className="px-5 py-3 rounded-2xl text-center font-bold text-sm sm:text-base min-w-[90px] bg-slate-800/95 border-2 border-violet-400/50 text-white shadow-lg shadow-violet-500/20 backdrop-blur-sm">
-                    {!gate.correctOnLeft ? gate.correctAnswer : gate.wrongAnswer}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Finish line */}
-            {showFinishLine && (
-              <div
-                className="absolute left-[15%] right-[15%] h-8 z-10"
-                style={{ top: `${finishLineY}%`, transform: 'translateY(-50%)' }}
-              >
-                <div className="w-full h-full flex">
-                  {Array.from({ length: 16 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`flex-1 h-full ${i % 2 === 0 ? 'bg-white' : 'bg-slate-900'}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Car */}
-            <div
-              className="absolute z-10 transition-all duration-150 ease-out"
-              style={{
-                top: `${GATE_HIT_ZONE}%`,
-                left: lane === 'left' ? '33%' : '67%',
-                transform: 'translate(-50%, -50%)',
-              }}
-            >
-              <div className="relative">
-                {/* Car shadow on road */}
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-5 bg-black/30 rounded-full blur-md" />
-                {/* Nitro trail/flame */}
-                {nitro && (
-                  <>
-                    <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 flex flex-col items-center">
-                      <div className="w-5 h-8 bg-gradient-to-t from-transparent via-orange-500/80 to-yellow-300 rounded-full blur-[3px] animate-pulse" />
-                    </div>
-                    <div className="absolute -bottom-11 left-1/2 -translate-x-1/2 w-3 h-6 bg-gradient-to-t from-transparent to-red-500/40 rounded-full blur-sm" />
-                  </>
-                )}
-                {/* Glow under car */}
-                <div className={`absolute -inset-4 rounded-full blur-xl transition-colors duration-200 ${
-                  nitro ? 'bg-amber-400/40' : 'bg-cyan-400/25'
-                }`} />
-                {/* Car emoji */}
-                <div className={`text-5xl sm:text-6xl transition-transform duration-150 ${
-                  nitro ? 'scale-110' : ''
-                }`} style={{
-                  filter: nitro
-                    ? 'drop-shadow(0 0 16px rgba(250,204,21,0.7)) drop-shadow(0 0 30px rgba(250,204,21,0.3))'
-                    : 'drop-shadow(0 0 10px rgba(34,211,238,0.5)) drop-shadow(0 0 20px rgba(34,211,238,0.2))',
-                }}>
-                  🏎️
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Speed lines — flat overlay */}
-        {(nitro || streak >= 5) && (
-          <div className="absolute inset-0 pointer-events-none z-[15] overflow-hidden">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={`speed-${i}`}
-                className="absolute bg-white/[0.08] rounded-full"
-                style={{
-                  left: i % 2 === 0 ? `${3 + (i * 2)}%` : `${89 - (i * 2)}%`,
-                  top: `${(i * 15 + roadOffset * 5) % 130 - 15}%`,
-                  width: '2px',
-                  height: nitro ? '60px' : '30px',
-                  opacity: nitro ? 0.3 : 0.12,
-                }}
-              />
+        {/* Road edge lines — SVG converging lines */}
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full z-[4] pointer-events-none">
+          {/* Left edge */}
+          <line x1={50 - ROAD_TOP_HW} y1={VANISH_Y} x2={50 - ROAD_BOT_HW} y2={100} stroke="white" strokeWidth="0.35" opacity="0.5" />
+          {/* Right edge */}
+          <line x1={50 + ROAD_TOP_HW} y1={VANISH_Y} x2={50 + ROAD_BOT_HW} y2={100} stroke="white" strokeWidth="0.35" opacity="0.5" />
+        </svg>
+
+        {/* Gates — positioned at converging lane centers */}
+        {gate && gate.y > VANISH_Y - 5 && (
+          <>
+            {/* Left gate answer */}
+            <div className="absolute z-[6] pointer-events-none" style={{
+              top: `${gate.y}%`,
+              left: `${gateLeftLane}%`,
+              transform: `translate(-50%, -50%) scale(${gateScale})`,
+              opacity: gateOpacity,
+            }}>
+              <div className="px-4 py-2.5 rounded-2xl text-center font-bold text-base sm:text-lg min-w-[80px] bg-slate-900/95 border-2 border-cyan-400/60 text-white shadow-[0_0_20px_rgba(34,211,238,0.15)] backdrop-blur-sm whitespace-nowrap">
+                {gate.correctOnLeft ? gate.correctAnswer : gate.wrongAnswer}
+              </div>
+            </div>
+            {/* Right gate answer */}
+            <div className="absolute z-[6] pointer-events-none" style={{
+              top: `${gate.y}%`,
+              left: `${gateRightLane}%`,
+              transform: `translate(-50%, -50%) scale(${gateScale})`,
+              opacity: gateOpacity,
+            }}>
+              <div className="px-4 py-2.5 rounded-2xl text-center font-bold text-base sm:text-lg min-w-[80px] bg-slate-900/95 border-2 border-cyan-400/60 text-white shadow-[0_0_20px_rgba(34,211,238,0.15)] backdrop-blur-sm whitespace-nowrap">
+                {!gate.correctOnLeft ? gate.correctAnswer : gate.wrongAnswer}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Finish line — spans road width at its Y position */}
+        {showFinishLine && finishLineY > VANISH_Y - 5 && (
+          <div className="absolute z-[6] h-6 flex" style={{
+            top: `${finishLineY}%`,
+            left: `${50 - finishHW}%`,
+            width: `${finishHW * 2}%`,
+            transform: 'translateY(-50%)',
+          }}>
+            {Array.from({ length: 16 }).map((_, i) => (
+              <div key={i} className={`flex-1 h-full ${i % 2 === 0 ? 'bg-white' : 'bg-slate-900'}`} />
             ))}
           </div>
         )}
 
-        {/* Particles — flat overlay */}
+        {/* Car */}
+        <div className="absolute z-[7] transition-all duration-150 ease-out" style={{
+          top: `${GATE_HIT_ZONE}%`,
+          left: `${lane === 'left' ? road.carLeftLane : road.carRightLane}%`,
+          transform: 'translate(-50%, -50%)',
+        }}>
+          <div className="relative">
+            {/* Car shadow on road */}
+            <div className="absolute top-5 left-1/2 -translate-x-1/2 w-14 h-5 bg-black/40 rounded-full blur-md" />
+            {/* Nitro trail */}
+            {nitro && (
+              <>
+                <div className="absolute -bottom-8 left-1/2 -translate-x-1/2">
+                  <div className="w-6 h-10 bg-gradient-to-t from-transparent via-orange-500/80 to-yellow-300 rounded-full blur-[3px] animate-pulse" />
+                </div>
+                <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 w-3 h-7 bg-gradient-to-t from-transparent to-red-500/40 rounded-full blur-sm" />
+              </>
+            )}
+            {/* Glow */}
+            <div className={`absolute -inset-5 rounded-full blur-2xl transition-colors duration-200 ${nitro ? 'bg-amber-400/40' : 'bg-cyan-400/20'}`} />
+            {/* Car */}
+            <div className={`text-6xl sm:text-7xl transition-transform duration-150 ${nitro ? 'scale-110' : ''}`} style={{
+              filter: nitro
+                ? 'drop-shadow(0 0 20px rgba(250,204,21,0.8)) drop-shadow(0 0 40px rgba(250,204,21,0.3))'
+                : 'drop-shadow(0 0 12px rgba(34,211,238,0.6)) drop-shadow(0 0 24px rgba(34,211,238,0.2))',
+            }}>
+              🏎️
+            </div>
+          </div>
+        </div>
+
+        {/* Speed lines */}
+        {(nitro || streak >= 5) && (
+          <div className="absolute inset-0 pointer-events-none z-[5] overflow-hidden">
+            {Array.from({ length: 10 }).map((_, i) => {
+              const isLeft = i % 2 === 0;
+              const xBase = isLeft ? (50 - roadHalfWidth(80) - 5 + i * 1.5) : (50 + roadHalfWidth(80) + 5 - i * 1.5);
+              return (
+                <div key={`sl-${i}`} className="absolute bg-white/10 rounded-full" style={{
+                  left: `${xBase}%`,
+                  top: `${(i * 12 + roadOffset * 5) % 130 - 15}%`,
+                  width: '2px',
+                  height: nitro ? '50px' : '25px',
+                  opacity: nitro ? 0.25 : 0.1,
+                }} />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Particles */}
         {particles.length > 0 && (
-          <div
-            className="absolute z-30 pointer-events-none"
-            style={{
-              top: `${GATE_HIT_ZONE}%`,
-              left: lane === 'left' ? '33%' : '67%',
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
+          <div className="absolute z-[8] pointer-events-none" style={{
+            top: `${GATE_HIT_ZONE}%`,
+            left: `${lane === 'left' ? road.carLeftLane : road.carRightLane}%`,
+            transform: 'translate(-50%, -50%)',
+          }}>
             {particles.map((p) => (
-              <div
-                key={p.id}
-                className="absolute w-2.5 h-2.5 rounded-full particle-burst"
-                style={{
-                  backgroundColor: p.color,
-                  boxShadow: `0 0 8px ${p.color}`,
-                  '--px': `${Math.cos(p.angle * Math.PI / 180) * p.distance}px`,
-                  '--py': `${Math.sin(p.angle * Math.PI / 180) * p.distance}px`,
-                } as React.CSSProperties}
-              />
+              <div key={p.id} className="absolute w-2.5 h-2.5 rounded-full particle-burst" style={{
+                backgroundColor: p.color,
+                boxShadow: `0 0 8px ${p.color}`,
+                '--px': `${Math.cos(p.angle * Math.PI / 180) * p.distance}px`,
+                '--py': `${Math.sin(p.angle * Math.PI / 180) * p.distance}px`,
+              } as React.CSSProperties} />
             ))}
           </div>
         )}
 
         {/* Score popup */}
         {scorePopup && (
-          <div
-            key={scorePopup.key}
-            className="absolute z-30 pointer-events-none score-float-anim"
-            style={{
-              top: `${GATE_HIT_ZONE - 10}%`,
-              left: '50%',
-              transform: 'translateX(-50%)',
-            }}
-          >
-            <span className={`text-2xl font-black drop-shadow-lg ${
-              scorePopup.value >= 5
-                ? 'text-amber-400'
-                : scorePopup.value >= 3
-                  ? 'text-cyan-400'
-                  : 'text-emerald-400'
+          <div key={scorePopup.key} className="absolute z-[9] pointer-events-none score-float-anim" style={{
+            top: `${GATE_HIT_ZONE - 10}%`,
+            left: '50%',
+            transform: 'translateX(-50%)',
+          }}>
+            <span className={`text-3xl font-black ${
+              scorePopup.value >= 5 ? 'text-amber-400' : scorePopup.value >= 3 ? 'text-cyan-400' : 'text-emerald-400'
             }`} style={{
               textShadow: scorePopup.value >= 5
-                ? '0 0 12px rgba(251,191,36,0.7)'
-                : scorePopup.value >= 3
-                  ? '0 0 10px rgba(34,211,238,0.6)'
-                  : '0 0 8px rgba(16,185,129,0.6)',
+                ? '0 0 16px rgba(251,191,36,0.8)' : scorePopup.value >= 3
+                  ? '0 0 14px rgba(34,211,238,0.7)' : '0 0 12px rgba(16,185,129,0.7)',
             }}>
-              +1{scorePopup.value >= 3 && <span className="text-lg ml-1">({scorePopup.value}x)</span>}
+              +1{scorePopup.value >= 3 && <span className="text-xl ml-1">({scorePopup.value}x)</span>}
             </span>
           </div>
         )}
 
-        {/* Flash overlay — enhanced with glowing border */}
+        {/* Flash overlay */}
         {flashResult && (
-          <div
-            className={`absolute inset-0 z-20 pointer-events-none flash-fade-anim ${
-              flashResult === 'correct'
-                ? 'bg-emerald-500/20'
-                : 'bg-red-500/25'
-            }`}
-          >
-            <div className={`absolute inset-0 ${
-              flashResult === 'correct'
-                ? 'shadow-[inset_0_0_80px_rgba(16,185,129,0.4),inset_0_0_120px_rgba(16,185,129,0.2)]'
-                : 'shadow-[inset_0_0_80px_rgba(239,68,68,0.5),inset_0_0_120px_rgba(239,68,68,0.2)]'
+          <div className={`absolute inset-0 z-[10] pointer-events-none flash-fade-anim ${flashResult === 'correct' ? 'bg-emerald-500/20' : 'bg-red-500/25'}`}>
+            <div className={`absolute inset-0 ${flashResult === 'correct'
+              ? 'shadow-[inset_0_0_100px_rgba(16,185,129,0.5),inset_0_0_200px_rgba(16,185,129,0.2)]'
+              : 'shadow-[inset_0_0_100px_rgba(239,68,68,0.6),inset_0_0_200px_rgba(239,68,68,0.2)]'
             }`} />
           </div>
         )}
       </div>
 
       {/* Question word */}
-      <div className="text-center py-2 bg-slate-950 z-20 relative border-t border-slate-800/50">
-        <p className="text-[10px] text-slate-500 mb-0.5">{directionLabel}</p>
-        <div className="inline-flex items-center gap-2 px-5 py-1.5 rounded-2xl bg-slate-800/80 border border-slate-700/50">
-          <span className="text-lg">{displayFlag}</span>
-          <h2 className="text-xl font-bold text-white">{displayWord}</h2>
+      <div className="text-center py-2.5 bg-slate-950 z-20 relative border-t border-slate-800/50">
+        <p className="text-[10px] text-slate-500 mb-1">{directionLabel}</p>
+        <div className="inline-flex items-center gap-2.5 px-6 py-2 rounded-2xl bg-slate-800/80 border border-slate-700/50">
+          <span className="text-xl">{displayFlag}</span>
+          <h2 className="text-2xl font-bold text-white">{displayWord}</h2>
         </div>
       </div>
 
       {/* Lane controls */}
       <div className="flex z-20 relative gap-px bg-slate-800/50">
-        <button
-          onPointerDown={() => setLane('left')}
-          className={`flex-1 py-5 flex flex-col items-center justify-center transition-all duration-150 touch-manipulation active:scale-95 ${
-            lane === 'left'
-              ? 'bg-cyan-500/15 border-t-2 border-cyan-400'
-              : 'bg-slate-950 border-t-2 border-transparent'
-          }`}
-        >
+        <button onPointerDown={() => setLane('left')} className={`flex-1 py-5 flex flex-col items-center justify-center transition-all duration-150 touch-manipulation active:scale-95 ${
+          lane === 'left' ? 'bg-cyan-500/15 border-t-2 border-cyan-400' : 'bg-slate-950 border-t-2 border-transparent'
+        }`}>
           <span className={`text-3xl transition-transform duration-150 ${lane === 'left' ? 'scale-110' : ''}`}>👈</span>
           <span className={`text-xs font-semibold mt-0.5 ${lane === 'left' ? 'text-cyan-400' : 'text-slate-600'}`}>Links</span>
         </button>
-        <button
-          onPointerDown={() => setLane('right')}
-          className={`flex-1 py-5 flex flex-col items-center justify-center transition-all duration-150 touch-manipulation active:scale-95 ${
-            lane === 'right'
-              ? 'bg-cyan-500/15 border-t-2 border-cyan-400'
-              : 'bg-slate-950 border-t-2 border-transparent'
-          }`}
-        >
+        <button onPointerDown={() => setLane('right')} className={`flex-1 py-5 flex flex-col items-center justify-center transition-all duration-150 touch-manipulation active:scale-95 ${
+          lane === 'right' ? 'bg-cyan-500/15 border-t-2 border-cyan-400' : 'bg-slate-950 border-t-2 border-transparent'
+        }`}>
           <span className={`text-3xl transition-transform duration-150 ${lane === 'right' ? 'scale-110' : ''}`}>👉</span>
           <span className={`text-xs font-semibold mt-0.5 ${lane === 'right' ? 'text-cyan-400' : 'text-slate-600'}`}>Rechts</span>
         </button>
@@ -890,10 +801,7 @@ export function RaceGame({
           <div className="text-5xl mb-4">⏸️</div>
           <h2 className="text-2xl font-bold text-white mb-2">Gepauzeerd</h2>
           <p className="text-slate-400 mb-6">Neem even pauze!</p>
-          <button
-            onClick={() => setPaused(false)}
-            className="px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-lg active:scale-95 transition-transform touch-manipulation"
-          >
+          <button onClick={() => setPaused(false)} className="px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold text-lg active:scale-95 transition-transform touch-manipulation">
             Verder racen
           </button>
         </div>
@@ -909,57 +817,32 @@ export function RaceGame({
           75% { transform: translateX(-2px); }
           90% { transform: translateX(2px); }
         }
-        .animate-shake {
-          animation: shake 0.4s ease-out;
-        }
+        .animate-shake { animation: shake 0.4s ease-out; }
         @keyframes bounce-in {
           0% { transform: scale(0.3); opacity: 0; }
           50% { transform: scale(1.05); opacity: 1; }
           70% { transform: scale(0.9); }
           100% { transform: scale(1); }
         }
-        .animate-bounce-in {
-          animation: bounce-in 0.6s ease-out;
-        }
-        @keyframes flash-fade {
-          0% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        .flash-fade-anim {
-          animation: flash-fade 0.5s ease-out forwards;
-        }
-        @keyframes spin-slow {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 3s linear infinite;
-        }
+        .animate-bounce-in { animation: bounce-in 0.6s ease-out; }
+        @keyframes flash-fade { 0% { opacity: 1; } 100% { opacity: 0; } }
+        .flash-fade-anim { animation: flash-fade 0.5s ease-out forwards; }
+        @keyframes spin-slow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .animate-spin-slow { animation: spin-slow 3s linear infinite; }
         @keyframes particle-burst-kf {
           0% { transform: translate(0, 0) scale(1); opacity: 1; }
           100% { transform: translate(var(--px), var(--py)) scale(0); opacity: 0; }
         }
-        .particle-burst {
-          animation: particle-burst-kf ${PARTICLE_DURATION}ms ease-out forwards;
-        }
+        .particle-burst { animation: particle-burst-kf ${PARTICLE_DURATION}ms ease-out forwards; }
         @keyframes score-float-kf {
           0% { transform: translateX(-50%) translateY(0); opacity: 1; }
           60% { opacity: 1; }
           100% { transform: translateX(-50%) translateY(-60px); opacity: 0; }
         }
-        .score-float-anim {
-          animation: score-float-kf 0.8s ease-out forwards;
-        }
-        @keyframes twinkle {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 0.8; }
-        }
-        .star-twinkle {
-          animation: twinkle 2s ease-in-out infinite;
-        }
-        .star-twinkle-delayed {
-          animation: twinkle 2.5s ease-in-out 0.8s infinite;
-        }
+        .score-float-anim { animation: score-float-kf 0.8s ease-out forwards; }
+        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+        .star-twinkle { animation: twinkle 2s ease-in-out infinite; }
+        .star-twinkle-delayed { animation: twinkle 2.5s ease-in-out 0.8s infinite; }
       `}</style>
     </div>
   );
