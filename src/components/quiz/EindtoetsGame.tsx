@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ClipboardCheck, ChevronRight, Check, X } from 'lucide-react';
+import { ClipboardCheck, ChevronRight, X, ChevronDown, Share2 } from 'lucide-react';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 import { useAppStore } from '../../stores/useAppStore';
@@ -129,11 +129,11 @@ export function EindtoetsGame({
     });
   }, [words]);
 
-  const [phase, setPhase] = useState<'intro' | 'testing' | 'results'>('intro');
+  const [phase, setPhase] = useState<'intro' | 'testing' | 'calculating' | 'results'>('intro');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [input, setInput] = useState('');
-  const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [results, setResults] = useState<ToetsResult[]>([]);
+  const [showWrongAnswers, setShowWrongAnswers] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const ttsEnabled = useAppStore((s) => s.ttsEnabled);
 
@@ -163,13 +163,21 @@ export function EindtoetsGame({
 
   // Focus input
   useEffect(() => {
-    if (phase === 'testing' && !feedback) {
+    if (phase === 'testing') {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [phase, currentIndex, feedback]);
+  }, [phase, currentIndex]);
+
+  // Calculating phase → show results after delay
+  useEffect(() => {
+    if (phase === 'calculating') {
+      const timer = setTimeout(() => setPhase('results'), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
 
   const handleSubmit = useCallback(() => {
-    if (!current || feedback) return;
+    if (!current) return;
     const trimmed = input.trim();
     if (!trimmed) return;
 
@@ -183,18 +191,13 @@ export function EindtoetsGame({
       isCorrect: correct,
     }]);
 
-    setFeedback(correct ? 'correct' : 'wrong');
-
-    setTimeout(() => {
-      setFeedback(null);
-      setInput('');
-      if (currentIndex + 1 >= totalWords) {
-        setPhase('results');
-      } else {
-        setCurrentIndex(prev => prev + 1);
-      }
-    }, correct ? 600 : 1500);
-  }, [current, input, feedback, currentIndex, totalWords]);
+    setInput('');
+    if (currentIndex + 1 >= totalWords) {
+      setPhase('calculating');
+    } else {
+      setCurrentIndex(prev => prev + 1);
+    }
+  }, [current, input, currentIndex, totalWords]);
 
   const handleFinish = useCallback(() => {
     const mapped = results.map(r => ({
@@ -251,11 +254,46 @@ export function EindtoetsGame({
     );
   }
 
+  // Calculating screen — build suspense
+  if (phase === 'calculating') {
+    return (
+      <div className="min-h-full flex flex-col items-center justify-center bg-white px-6">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse">
+            <ClipboardCheck className="w-8 h-8 text-slate-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Je cijfer wordt berekend...</h2>
+          <p className="text-gray-400 text-sm">Even geduld</p>
+          <div className="mt-6 flex justify-center gap-1.5">
+            <span className="w-2.5 h-2.5 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-2.5 h-2.5 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-2.5 h-2.5 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Results screen
   if (phase === 'results') {
     const correctCount = results.filter(r => r.isCorrect).length;
     const wrongResults = results.filter(r => !r.isCorrect);
     const grade = calculateGrade(correctCount, totalWords);
+
+    const shareText = `${childName} heeft een ${grade % 1 === 0 ? grade : grade.toFixed(1)} gehaald voor de eindtoets! (${correctCount}/${totalWords} goed)`;
+
+    const handleShare = async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'Eindtoets resultaat', text: shareText });
+        } catch { /* user cancelled */ }
+      } else {
+        try {
+          await navigator.clipboard.writeText(shareText);
+          alert('Resultaat gekopieerd naar klembord!');
+        } catch { /* ignore */ }
+      }
+    };
 
     return (
       <div className="min-h-full flex flex-col bg-white">
@@ -269,29 +307,45 @@ export function EindtoetsGame({
             </div>
             <p className="text-gray-700 font-medium mt-2">{getGradeMessage(grade, childName)}</p>
             <p className="text-sm text-gray-400 mt-1">{correctCount} van {totalWords} goed</p>
+
+            <button
+              onClick={handleShare}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-blue-600 font-medium text-sm border border-blue-200 active:scale-[0.98] transition-transform touch-manipulation"
+            >
+              <Share2 className="w-4 h-4" />
+              Resultaat delen
+            </button>
           </div>
 
           {wrongResults.length > 0 && (
             <div className="px-6 pb-6">
-              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                Fout beantwoord ({wrongResults.length})
-              </h3>
-              <div className="space-y-2">
-                {wrongResults.map((r, i) => (
-                  <div key={i} className="bg-red-50 border border-red-100 rounded-xl p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-gray-900">
-                          {r.direction === 'source-to-dutch' ? r.word.sourceWord : r.word.dutchWord}
-                        </p>
-                        <p className="text-sm text-red-500 line-through mt-0.5">{r.givenAnswer}</p>
-                        <p className="text-sm text-emerald-600 font-medium">{r.correctAnswer}</p>
+              <button
+                onClick={() => setShowWrongAnswers(prev => !prev)}
+                className="flex items-center gap-2 w-full text-left py-2"
+              >
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showWrongAnswers ? 'rotate-0' : '-rotate-90'}`} />
+                <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+                  Fout beantwoord ({wrongResults.length})
+                </span>
+              </button>
+              {showWrongAnswers && (
+                <div className="space-y-2 mt-2">
+                  {wrongResults.map((r, i) => (
+                    <div key={i} className="bg-red-50 border border-red-100 rounded-xl p-3">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {r.direction === 'source-to-dutch' ? r.word.sourceWord : r.word.dutchWord}
+                          </p>
+                          <p className="text-sm text-red-500 line-through mt-0.5">{r.givenAnswer}</p>
+                          <p className="text-sm text-emerald-600 font-medium">{r.correctAnswer}</p>
+                        </div>
+                        <X className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                       </div>
-                      <X className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -334,21 +388,6 @@ export function EindtoetsGame({
         <span className="text-2xl mb-2">{displayFlag}</span>
         <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">{current?.questionWord}</h2>
 
-        {/* Feedback overlay */}
-        {feedback && (
-          <div className={`mb-4 px-4 py-2 rounded-xl text-sm font-semibold ${
-            feedback === 'correct'
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
-          }`}>
-            {feedback === 'correct' ? (
-              <span className="flex items-center gap-1.5"><Check className="w-4 h-4" /> Goed</span>
-            ) : (
-              <span>Fout — het was: <strong>{current?.correctAnswer}</strong></span>
-            )}
-          </div>
-        )}
-
         {/* Input */}
         <div className="w-full max-w-sm">
           <input
@@ -357,17 +396,10 @@ export function EindtoetsGame({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
-            disabled={!!feedback}
             placeholder="Typ je antwoord..."
             autoComplete="off"
             autoCapitalize="off"
-            className={`w-full px-4 py-3 text-lg text-center rounded-xl border-2 outline-none transition-colors ${
-              feedback === 'correct'
-                ? 'border-emerald-300 bg-emerald-50'
-                : feedback === 'wrong'
-                  ? 'border-red-300 bg-red-50'
-                  : 'border-gray-200 focus:border-slate-400 bg-white'
-            }`}
+            className="w-full px-4 py-3 text-lg text-center rounded-xl border-2 outline-none transition-colors border-gray-200 focus:border-slate-400 bg-white"
           />
         </div>
       </div>
@@ -376,7 +408,7 @@ export function EindtoetsGame({
       <div className="px-6 pb-6 pt-3">
         <button
           onClick={handleSubmit}
-          disabled={!input.trim() || !!feedback}
+          disabled={!input.trim()}
           className="w-full py-3.5 rounded-xl bg-slate-900 text-white font-semibold text-lg disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-all touch-manipulation flex items-center justify-center gap-2"
         >
           Volgende <ChevronRight className="w-5 h-5" />
