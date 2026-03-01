@@ -476,10 +476,8 @@ export function RaceGame({
     );
   }
 
-  // Gate approach calculations — simple scale + opacity
-  const gateProgress = gate ? Math.max(0, gate.y) / GATE_HIT_ZONE : 0;
-  const gateScale = 0.6 + gateProgress * 0.4;
-  const gateOpacity = gate && gate.y < 0 ? 0 : 0.5 + Math.min(1, gateProgress) * 0.5;
+  // Gate approach calculations — fixed size, subtle fade-in only
+  const gateOpacity = gate && gate.y < 0 ? 0 : gate ? Math.min(1, Math.max(0, gate.y) / 15) : 0;
 
   const carLaneX = lane === 'left' ? LEFT_LANE : RIGHT_LANE;
 
@@ -565,10 +563,10 @@ export function RaceGame({
             <div className="absolute z-10 pointer-events-none transition-[left] duration-150" style={{
               top: `${gate.y}%`,
               left: `${LEFT_LANE}%`,
-              transform: `translate(-50%, -50%) scale(${gateScale})`,
+              transform: 'translate(-50%, -50%)',
               opacity: gateOpacity,
             }}>
-              <div className="px-5 py-3 rounded-2xl text-center font-bold text-lg min-w-[90px] bg-slate-900/90 border-2 border-cyan-400/50 text-white shadow-[0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-sm whitespace-nowrap">
+              <div className="px-4 py-2.5 rounded-2xl text-center font-bold text-base min-w-[80px] bg-slate-900/90 border-2 border-cyan-400/50 text-white shadow-[0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-sm whitespace-nowrap">
                 {gate.correctOnLeft ? gate.correctAnswer : gate.wrongAnswer}
               </div>
             </div>
@@ -576,10 +574,10 @@ export function RaceGame({
             <div className="absolute z-10 pointer-events-none transition-[left] duration-150" style={{
               top: `${gate.y}%`,
               left: `${RIGHT_LANE}%`,
-              transform: `translate(-50%, -50%) scale(${gateScale})`,
+              transform: 'translate(-50%, -50%)',
               opacity: gateOpacity,
             }}>
-              <div className="px-5 py-3 rounded-2xl text-center font-bold text-lg min-w-[90px] bg-slate-900/90 border-2 border-cyan-400/50 text-white shadow-[0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-sm whitespace-nowrap">
+              <div className="px-4 py-2.5 rounded-2xl text-center font-bold text-base min-w-[80px] bg-slate-900/90 border-2 border-cyan-400/50 text-white shadow-[0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-sm whitespace-nowrap">
                 {!gate.correctOnLeft ? gate.correctAnswer : gate.wrongAnswer}
               </div>
             </div>
