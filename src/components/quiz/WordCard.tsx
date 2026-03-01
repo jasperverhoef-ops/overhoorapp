@@ -6,6 +6,7 @@ import { TimerDisplay } from './TimerDisplay';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { isSpeechSupported, listenForAnswer, fuzzyMatch } from '../../lib/speechRecognition';
 import type { RoundWord, Language, MasteryItem } from '../../models/types';
+import { roundColors } from './roundColors';
 
 interface WordCardProps {
   round: 1 | 2 | 3;
@@ -21,12 +22,6 @@ interface WordCardProps {
   onHint: () => void;
   onQuit: () => void;
 }
-
-const roundColors = {
-  1: { badge: 'bg-blue-100 text-blue-700', progress: 'bg-blue-500', label: 'Ronde 1' },
-  2: { badge: 'bg-green-100 text-green-700', progress: 'bg-green-500', label: 'Ronde 2' },
-  3: { badge: 'bg-purple-100 text-purple-700', progress: 'bg-purple-500', label: 'Bonusronde' },
-};
 
 export function WordCard({
   round,

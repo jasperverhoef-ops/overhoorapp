@@ -8,6 +8,7 @@ import { getHint, MAX_HINT_LEVEL } from '../../lib/hintSystem';
 import { useAppStore } from '../../stores/useAppStore';
 import { speakWord } from '../../lib/tts';
 import type { RoundWord, Language, MasteryItem, ChoiceOption, HintLevel, GameType } from '../../models/types';
+import { roundColors } from './roundColors';
 
 interface SelfTrainWordCardProps {
   round: 1 | 2 | 3;
@@ -27,12 +28,6 @@ interface SelfTrainWordCardProps {
   onAdvanceHint: () => void;
   onQuit: () => void;
 }
-
-const roundColors = {
-  1: { badge: 'bg-blue-100 text-blue-700', progress: 'bg-blue-500', label: 'Ronde 1' },
-  2: { badge: 'bg-green-100 text-green-700', progress: 'bg-green-500', label: 'Ronde 2' },
-  3: { badge: 'bg-purple-100 text-purple-700', progress: 'bg-purple-500', label: 'Bonusronde' },
-};
 
 function normalizeAnswer(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, ' ');

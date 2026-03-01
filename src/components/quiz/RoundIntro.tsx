@@ -1,6 +1,7 @@
 import { Button } from '../ui/Button';
 import { LANGUAGE_LABELS } from '../../models/types';
 import type { Language, TrainingMode } from '../../models/types';
+import { roundColors } from './roundColors';
 
 interface RoundIntroProps {
   round: 1 | 2 | 3;
@@ -10,18 +11,6 @@ interface RoundIntroProps {
   mode?: TrainingMode;
   onStart: () => void;
 }
-
-const roundColors = {
-  1: 'from-blue-50 to-blue-100 text-blue-700',
-  2: 'from-green-50 to-green-100 text-green-700',
-  3: 'from-purple-50 to-purple-100 text-purple-700',
-};
-
-const roundBadges = {
-  1: 'bg-blue-500',
-  2: 'bg-green-500',
-  3: 'bg-purple-500',
-};
 
 export function RoundIntro({ round, sourceLanguage, totalWords, difficultWordCount, mode, onStart }: RoundIntroProps) {
   const langLabel = LANGUAGE_LABELS[sourceLanguage];
@@ -44,8 +33,8 @@ export function RoundIntro({ round, sourceLanguage, totalWords, difficultWordCou
   };
 
   return (
-    <div className={`min-h-full flex flex-col items-center justify-center px-6 py-12 bg-gradient-to-b ${roundColors[round]}`}>
-      <div className={`w-16 h-16 ${roundBadges[round]} rounded-full flex items-center justify-center mb-6 shadow-lg`}>
+    <div className={`min-h-full flex flex-col items-center justify-center px-6 py-12 bg-gradient-to-b ${roundColors[round].gradient}`}>
+      <div className={`w-16 h-16 ${roundColors[round].progress} rounded-full flex items-center justify-center mb-6 shadow-lg`}>
         <span className="text-2xl font-bold text-white">{round}</span>
       </div>
 

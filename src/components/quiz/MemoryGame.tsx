@@ -5,6 +5,7 @@ import { ProgressBar } from '../ui/ProgressBar';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
+import { roundColors } from './roundColors';
 
 interface MemoryGameProps {
   round: 1 | 2 | 3;
@@ -73,11 +74,6 @@ export function MemoryGame({
     : `NL \u2194 ${LANGUAGE_LABELS[sourceLanguage]}`;
   const displayFlag = LANGUAGE_FLAGS[sourceLanguage];
 
-  const roundColors = {
-    1: { badge: 'bg-blue-100 text-blue-700', progress: 'bg-blue-500', label: 'Ronde 1' },
-    2: { badge: 'bg-green-100 text-green-700', progress: 'bg-green-500', label: 'Ronde 2' },
-    3: { badge: 'bg-purple-100 text-purple-700', progress: 'bg-purple-500', label: 'Bonusronde' },
-  };
   const colors = roundColors[round];
 
   // Check if game is complete

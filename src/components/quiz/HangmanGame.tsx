@@ -8,6 +8,7 @@ import { useAppStore } from '../../stores/useAppStore';
 import { speakWord } from '../../lib/tts';
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
+import { roundColors } from './roundColors';
 
 interface HangmanGameProps {
   words: Word[];
@@ -192,10 +193,6 @@ export function HangmanGame({
     onComplete(results);
   }, [results, onComplete]);
 
-  const roundColors = {
-    1: { badge: 'bg-blue-100 text-blue-700', progress: 'bg-blue-500', label: 'Ronde 1' },
-    2: { badge: 'bg-green-100 text-green-700', progress: 'bg-green-500', label: 'Ronde 2' },
-  };
   const colors = roundColors[round];
 
   // Game over screen — all lives lost
