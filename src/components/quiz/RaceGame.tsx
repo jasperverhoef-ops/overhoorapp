@@ -12,7 +12,7 @@ const BASE_SPEED = 0.5;
 const MAX_STREAK_BONUS = 0.35;
 const NITRO_SPEED = 1.4;
 const NITRO_DURATION = 350;
-const GATE_HIT_ZONE = 75;
+const GATE_HIT_ZONE = 82;
 const PARTICLE_COUNT = 14;
 const PARTICLE_DURATION = 700;
 
@@ -82,6 +82,7 @@ export function RaceGame({
     return queue;
   }, [words]);
 
+  const [countdown, setCountdown] = useState(3); // 3, 2, 1, 0 (0 = "Start!", -1 = racing)
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lives, setLives] = useState(MAX_LIVES);
   const [score, setScore] = useState(0);
@@ -118,7 +119,7 @@ export function RaceGame({
   const speedRef = useRef(BASE_SPEED);
   const gateProcessedRef = useRef(false);
   const nitroTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startTimeRef = useRef(Date.now());
+  const startTimeRef = useRef(0);
 
   laneRef.current = lane;
   currentIndexRef.current = currentIndex;
@@ -134,6 +135,17 @@ export function RaceGame({
       soundEnabledRef.current = s.soundEnabled;
     });
   }, []);
+
+  // Countdown timer: 3 → 2 → 1 → 0 ("Start!") → -1 (racing)
+  useEffect(() => {
+    if (countdown < 0) return;
+    const delay = countdown === 0 ? 600 : 800;
+    const timer = setTimeout(() => setCountdown((c) => c - 1), delay);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const isCountingDown = countdown >= 0;
+  const isRacing = countdown < 0;
 
   const soundEnabled = useAppStore((s) => s.soundEnabled);
   const ttsEnabled = useAppStore((s) => s.ttsEnabled);
@@ -276,8 +288,16 @@ export function RaceGame({
     }
   }, [raceQueue]);
 
-  // Main animation loop
+  // Set start time when countdown finishes
   useEffect(() => {
+    if (isRacing && startTimeRef.current === 0) {
+      startTimeRef.current = Date.now();
+    }
+  }, [isRacing]);
+
+  // Main animation loop — only runs after countdown
+  useEffect(() => {
+    if (!isRacing) return;
     let running = true;
 
     const tick = (timestamp: number) => {
@@ -336,7 +356,7 @@ export function RaceGame({
 
     animFrameRef.current = requestAnimationFrame(tick);
     return () => { running = false; cancelAnimationFrame(animFrameRef.current); };
-  }, [processCorrect, processWrong]);
+  }, [isRacing, processCorrect, processWrong]);
 
   useEffect(() => {
     if (gameOver || raceFinished) cancelAnimationFrame(animFrameRef.current);
@@ -698,6 +718,33 @@ export function RaceGame({
         </button>
       </div>
 
+      {/* Countdown overlay */}
+      {isCountingDown && (
+        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+          {countdown > 0 ? (
+            <div key={countdown} className="race-countdown-number">
+              <span className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-cyan-300 to-cyan-500" style={{
+                textShadow: '0 0 40px rgba(34,211,238,0.5)',
+                WebkitTextStroke: '2px rgba(34,211,238,0.3)',
+              }}>
+                {countdown}
+              </span>
+            </div>
+          ) : (
+            <div key="start" className="race-countdown-start">
+              <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400" style={{
+                textShadow: '0 0 40px rgba(34,211,238,0.6)',
+              }}>
+                START!
+              </span>
+            </div>
+          )}
+          <p className="text-slate-500 text-sm mt-6">
+            {countdown > 0 ? 'Maak je klaar...' : ''}
+          </p>
+        </div>
+      )}
+
       {/* Pause overlay */}
       {paused && (
         <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm flex flex-col items-center justify-center z-50">
@@ -743,6 +790,19 @@ export function RaceGame({
           100% { transform: translateX(-50%) translateY(-60px); opacity: 0; }
         }
         .score-float-anim { animation: score-float-kf 0.8s ease-out forwards; }
+        @keyframes countdown-pop {
+          0% { transform: scale(2.5); opacity: 0; }
+          30% { transform: scale(0.9); opacity: 1; }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .race-countdown-number { animation: countdown-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        @keyframes countdown-start {
+          0% { transform: scale(0.3); opacity: 0; }
+          50% { transform: scale(1.15); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .race-countdown-start { animation: countdown-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
       `}</style>
     </div>
   );
