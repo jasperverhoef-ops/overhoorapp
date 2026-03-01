@@ -1,0 +1,58 @@
+@keyframes race-shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(6px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  90% { transform: translateX(2px); }
+}
+.race-shake { animation: race-shake 0.4s ease-out; }
+
+@keyframes race-bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); opacity: 1; }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.race-bounce-in { animation: race-bounce-in 0.6s ease-out; }
+
+@keyframes race-flash-fade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.race-flash-fade { animation: race-flash-fade 0.5s ease-out forwards; }
+
+@keyframes race-spin-slow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.race-spin-slow { animation: race-spin-slow 3s linear infinite; }
+
+@keyframes race-particle-burst {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--px), var(--py)) scale(0); opacity: 0; }
+}
+.race-particle-burst { animation: race-particle-burst 700ms ease-out forwards; }
+
+@keyframes race-score-float {
+  0% { transform: translateX(-50%) translateY(0); opacity: 1; }
+  60% { opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-60px); opacity: 0; }
+}
+.race-score-float { animation: race-score-float 0.8s ease-out forwards; }
+
+@keyframes race-countdown-pop {
+  0% { transform: scale(2.5); opacity: 0; }
+  30% { transform: scale(0.9); opacity: 1; }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.race-countdown-pop { animation: race-countdown-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+@keyframes race-countdown-start {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.race-countdown-start { animation: race-countdown-start 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
