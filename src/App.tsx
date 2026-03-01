@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useCallback } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import { HomePage } from './pages/HomePage';
 import { ListsPage } from './pages/ListsPage';
@@ -9,6 +10,7 @@ import { SelfPlaySelectPage } from './pages/SelfPlaySelectPage';
 import { ListDetail } from './components/lists/ListDetail';
 import { QuizScreen } from './components/quiz/QuizScreen';
 import { ListStats } from './components/stats/ListStats';
+import { SplashScreen } from './components/SplashScreen';
 import { useAppStore } from './stores/useAppStore';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -18,8 +20,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 export function App() {
+  const [showSplash, setShowSplash] = useState(
+    () => !sessionStorage.getItem('tt-splash-shown')
+  );
+
+  const handleSplashDone = useCallback(() => {
+    sessionStorage.setItem('tt-splash-shown', '1');
+    setShowSplash(false);
+  }, []);
+
   return (
     <BrowserRouter basename="/overhoorapp">
+      {showSplash && <SplashScreen onDone={handleSplashDone} />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route
