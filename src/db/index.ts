@@ -87,7 +87,7 @@ function createJasperSeed() {
   });
 
   const words: Word[] = [
-    // Basiswoorden
+    // Basiswoorden (25)
     w(list1, 'hola', 'hallo'),
     w(list1, 'adiós', 'dag'),
     w(list1, 'gracias', 'dank je'),
@@ -100,8 +100,21 @@ function createJasperSeed() {
     w(list1, 'pequeño', 'klein'),
     w(list1, 'el agua', 'het water'),
     w(list1, 'la casa', 'het huis'),
+    w(list1, 'el hombre', 'de man'),
+    w(list1, 'la mujer', 'de vrouw'),
+    w(list1, 'el niño', 'het kind'),
+    w(list1, 'el perro', 'de hond'),
+    w(list1, 'el gato', 'de kat'),
+    w(list1, 'el día', 'de dag'),
+    w(list1, 'la noche', 'de nacht'),
+    w(list1, 'el tiempo', 'de tijd'),
+    w(list1, 'mucho', 'veel'),
+    w(list1, 'poco', 'weinig'),
+    w(list1, 'nuevo', 'nieuw'),
+    w(list1, 'viejo', 'oud'),
+    w(list1, 'bonito', 'mooi'),
 
-    // Eten & Drinken
+    // Eten & Drinken (25)
     w(list2, 'la manzana', 'de appel'),
     w(list2, 'el pan', 'het brood'),
     w(list2, 'la leche', 'de melk'),
@@ -114,8 +127,21 @@ function createJasperSeed() {
     w(list2, 'el helado', 'het ijs'),
     w(list2, 'el café', 'de koffie'),
     w(list2, 'la sopa', 'de soep'),
+    w(list2, 'el huevo', 'het ei'),
+    w(list2, 'la carne', 'het vlees'),
+    w(list2, 'el zumo', 'het sap'),
+    w(list2, 'la naranja', 'de sinaasappel'),
+    w(list2, 'el plátano', 'de banaan'),
+    w(list2, 'la verdura', 'de groente'),
+    w(list2, 'el tomate', 'de tomaat'),
+    w(list2, 'la patata', 'de aardappel'),
+    w(list2, 'el azúcar', 'de suiker'),
+    w(list2, 'la sal', 'het zout'),
+    w(list2, 'la mantequilla', 'de boter'),
+    w(list2, 'el chocolate', 'de chocolade'),
+    w(list2, 'la galleta', 'het koekje'),
 
-    // Familie
+    // Familie (25)
     w(list3, 'la madre', 'de moeder'),
     w(list3, 'el padre', 'de vader'),
     w(list3, 'el hermano', 'de broer'),
@@ -128,22 +154,48 @@ function createJasperSeed() {
     w(list3, 'la prima', 'de nicht'),
     w(list3, 'el hijo', 'de zoon'),
     w(list3, 'la hija', 'de dochter'),
+    w(list3, 'el bebé', 'de baby'),
+    w(list3, 'el marido', 'de echtgenoot'),
+    w(list3, 'la esposa', 'de echtgenote'),
+    w(list3, 'el sobrino', 'de neef (van oom)'),
+    w(list3, 'la sobrina', 'de nicht (van oom)'),
+    w(list3, 'el nieto', 'de kleinzoon'),
+    w(list3, 'la nieta', 'de kleindochter'),
+    w(list3, 'el cuñado', 'de zwager'),
+    w(list3, 'la cuñada', 'de schoonzus'),
+    w(list3, 'el suegro', 'de schoonvader'),
+    w(list3, 'la suegra', 'de schoonmoeder'),
+    w(list3, 'la familia', 'de familie'),
+    w(list3, 'los padres', 'de ouders'),
 
-    // Kleuren & Getallen
+    // Kleuren & Getallen (25)
     w(list4, 'rojo', 'rood'),
     w(list4, 'azul', 'blauw'),
     w(list4, 'verde', 'groen'),
     w(list4, 'amarillo', 'geel'),
     w(list4, 'blanco', 'wit'),
     w(list4, 'negro', 'zwart'),
+    w(list4, 'naranja', 'oranje'),
+    w(list4, 'rosa', 'roze'),
+    w(list4, 'morado', 'paars'),
+    w(list4, 'gris', 'grijs'),
+    w(list4, 'marrón', 'bruin'),
     w(list4, 'uno', 'een'),
     w(list4, 'dos', 'twee'),
     w(list4, 'tres', 'drie'),
     w(list4, 'cuatro', 'vier'),
     w(list4, 'cinco', 'vijf'),
+    w(list4, 'seis', 'zes'),
+    w(list4, 'siete', 'zeven'),
+    w(list4, 'ocho', 'acht'),
+    w(list4, 'nueve', 'negen'),
     w(list4, 'diez', 'tien'),
+    w(list4, 'veinte', 'twintig'),
+    w(list4, 'cincuenta', 'vijftig'),
+    w(list4, 'cien', 'honderd'),
+    w(list4, 'mil', 'duizend'),
 
-    // Op school
+    // Op school (25)
     w(list5, 'el libro', 'het boek'),
     w(list5, 'el lápiz', 'het potlood'),
     w(list5, 'la mesa', 'de tafel'),
@@ -156,6 +208,19 @@ function createJasperSeed() {
     w(list5, 'la mochila', 'de rugzak'),
     w(list5, 'la pizarra', 'het schoolbord'),
     w(list5, 'el alumno', 'de leerling'),
+    w(list5, 'el bolígrafo', 'de pen'),
+    w(list5, 'la regla', 'de liniaal'),
+    w(list5, 'las tijeras', 'de schaar'),
+    w(list5, 'el papel', 'het papier'),
+    w(list5, 'la goma', 'de gum'),
+    w(list5, 'el reloj', 'de klok'),
+    w(list5, 'la ventana', 'het raam'),
+    w(list5, 'la puerta', 'de deur'),
+    w(list5, 'el ordenador', 'de computer'),
+    w(list5, 'la biblioteca', 'de bibliotheek'),
+    w(list5, 'el recreo', 'de pauze'),
+    w(list5, 'la asignatura', 'het schoolvak'),
+    w(list5, 'el horario', 'het rooster'),
   ];
 
   return { child, lists, words };
