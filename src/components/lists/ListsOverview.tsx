@@ -9,6 +9,7 @@ import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 import { CreateListDialog } from './CreateListDialog';
 import { LANGUAGE_FLAGS } from '../../models/types';
+import { useWordCounts } from '../../hooks/useWordCounts';
 
 export function ListsOverview() {
   const [showCreate, setShowCreate] = useState(false);
@@ -32,14 +33,7 @@ export function ListsOverview() {
     [selectedChildId]
   );
 
-  const wordCounts = useLiveQuery(async () => {
-    if (!lists) return {};
-    const counts: Record<string, number> = {};
-    for (const list of lists) {
-      counts[list.id] = await db.words.where('listId').equals(list.id).count();
-    }
-    return counts;
-  }, [lists]);
+  const wordCounts = useWordCounts(lists);
 
   if (!child) return null;
 

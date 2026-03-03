@@ -5,6 +5,90 @@ import { db } from '../db';
 import { useAppStore } from '../stores/useAppStore';
 import { LANGUAGE_FLAGS } from '../models/types';
 
+type Difficulty = 'Makkelijk' | 'Gemiddeld' | 'Moeilijk';
+
+const DIFFICULTY_BADGE: Record<Difficulty, string> = {
+  Makkelijk: 'bg-green-100 text-green-700',
+  Gemiddeld:  'bg-amber-100 text-amber-700',
+  Moeilijk:   'bg-red-100 text-red-700',
+};
+
+function HangmanIcon() {
+  return (
+    <svg className="w-5 h-5 text-violet-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="2" y1="22" x2="12" y2="22" />
+      <line x1="7" y1="22" x2="7" y2="4" />
+      <line x1="7" y1="4" x2="16" y2="4" />
+      <line x1="16" y1="4" x2="16" y2="7" />
+      <circle cx="16" cy="9" r="2" />
+      <line x1="16" y1="11" x2="16" y2="16" />
+      <line x1="14" y1="13" x2="18" y2="13" />
+      <line x1="14" y1="18" x2="16" y2="16" />
+      <line x1="18" y1="18" x2="16" y2="16" />
+    </svg>
+  );
+}
+
+interface ModeConfig {
+  route: string;
+  label: string;
+  difficulty: Difficulty;
+  icon: React.ReactNode;
+  cardCls: string;
+  iconBgCls: string;
+}
+
+const MODES: ModeConfig[] = [
+  {
+    route: 'race',
+    label: 'Race',
+    difficulty: 'Makkelijk',
+    icon: <Car className="w-5 h-5 text-cyan-600" />,
+    cardCls: 'border-cyan-100 hover:border-cyan-400 active:bg-cyan-50',
+    iconBgCls: 'bg-cyan-100',
+  },
+  {
+    route: 'blitz',
+    label: 'Swipe Blitz',
+    difficulty: 'Makkelijk',
+    icon: <Zap className="w-5 h-5 text-orange-600" />,
+    cardCls: 'border-orange-100 hover:border-orange-400 active:bg-orange-50',
+    iconBgCls: 'bg-orange-100',
+  },
+  {
+    route: 'memory',
+    label: 'Memory',
+    difficulty: 'Gemiddeld',
+    icon: <LayoutGrid className="w-5 h-5 text-pink-600" />,
+    cardCls: 'border-pink-100 hover:border-pink-400 active:bg-pink-50',
+    iconBgCls: 'bg-pink-100',
+  },
+  {
+    route: 'mc',
+    label: 'Multiple Choice',
+    difficulty: 'Gemiddeld',
+    icon: <Grid2X2 className="w-5 h-5 text-blue-600" />,
+    cardCls: 'border-blue-100 hover:border-blue-400 active:bg-blue-50',
+    iconBgCls: 'bg-blue-100',
+  },
+  {
+    route: 'hangman',
+    label: 'Galgje',
+    difficulty: 'Moeilijk',
+    icon: <HangmanIcon />,
+    cardCls: 'border-violet-100 hover:border-violet-400 active:bg-violet-50',
+    iconBgCls: 'bg-violet-100',
+  },
+  {
+    route: 'typing',
+    label: 'Typen',
+    difficulty: 'Moeilijk',
+    icon: <Keyboard className="w-5 h-5 text-green-600" />,
+    cardCls: 'border-green-100 hover:border-green-400 active:bg-green-50',
+    iconBgCls: 'bg-green-100',
+  },
+];
+
 export function SelfPlaySelectPage() {
   const { listId } = useParams<{ listId: string }>();
   const navigate = useNavigate();
@@ -46,89 +130,21 @@ export function SelfPlaySelectPage() {
 
         {/* 2-column grid — sorted easy → hard */}
         <div className="grid grid-cols-2 gap-2 w-full">
-
-          {/* Race — Makkelijk */}
-          <button
-            onClick={() => navigate(`/play/${listId}/self/race`)}
-            className="flex flex-col items-center gap-2 bg-white rounded-xl p-3 border-2 border-cyan-100 hover:border-cyan-400 hover:shadow-md active:bg-cyan-50 transition-all touch-manipulation"
-          >
-            <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-              <Car className="w-5 h-5 text-cyan-600" />
-            </div>
-            <span className="text-sm font-bold text-gray-900 text-center leading-tight">Race</span>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Makkelijk</span>
-          </button>
-
-          {/* Swipe Blitz — Makkelijk */}
-          <button
-            onClick={() => navigate(`/play/${listId}/self/blitz`)}
-            className="flex flex-col items-center gap-2 bg-white rounded-xl p-3 border-2 border-orange-100 hover:border-orange-400 hover:shadow-md active:bg-orange-50 transition-all touch-manipulation"
-          >
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-orange-600" />
-            </div>
-            <span className="text-sm font-bold text-gray-900 text-center leading-tight">Swipe Blitz</span>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Makkelijk</span>
-          </button>
-
-          {/* Memory — Gemiddeld */}
-          <button
-            onClick={() => navigate(`/play/${listId}/self/memory`)}
-            className="flex flex-col items-center gap-2 bg-white rounded-xl p-3 border-2 border-pink-100 hover:border-pink-400 hover:shadow-md active:bg-pink-50 transition-all touch-manipulation"
-          >
-            <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
-              <LayoutGrid className="w-5 h-5 text-pink-600" />
-            </div>
-            <span className="text-sm font-bold text-gray-900 text-center leading-tight">Memory</span>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Gemiddeld</span>
-          </button>
-
-          {/* Multiple Choice — Gemiddeld */}
-          <button
-            onClick={() => navigate(`/play/${listId}/self/mc`)}
-            className="flex flex-col items-center gap-2 bg-white rounded-xl p-3 border-2 border-blue-100 hover:border-blue-400 hover:shadow-md active:bg-blue-50 transition-all touch-manipulation"
-          >
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Grid2X2 className="w-5 h-5 text-blue-600" />
-            </div>
-            <span className="text-sm font-bold text-gray-900 text-center leading-tight">Multiple Choice</span>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Gemiddeld</span>
-          </button>
-
-          {/* Galgje — Moeilijk */}
-          <button
-            onClick={() => navigate(`/play/${listId}/self/hangman`)}
-            className="flex flex-col items-center gap-2 bg-white rounded-xl p-3 border-2 border-violet-100 hover:border-violet-400 hover:shadow-md active:bg-violet-50 transition-all touch-manipulation"
-          >
-            <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-violet-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="2" y1="22" x2="12" y2="22" />
-                <line x1="7" y1="22" x2="7" y2="4" />
-                <line x1="7" y1="4" x2="16" y2="4" />
-                <line x1="16" y1="4" x2="16" y2="7" />
-                <circle cx="16" cy="9" r="2" />
-                <line x1="16" y1="11" x2="16" y2="16" />
-                <line x1="14" y1="13" x2="18" y2="13" />
-                <line x1="14" y1="18" x2="16" y2="16" />
-                <line x1="18" y1="18" x2="16" y2="16" />
-              </svg>
-            </div>
-            <span className="text-sm font-bold text-gray-900 text-center leading-tight">Galgje</span>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Moeilijk</span>
-          </button>
-
-          {/* Typen — Moeilijk */}
-          <button
-            onClick={() => navigate(`/play/${listId}/self/typing`)}
-            className="flex flex-col items-center gap-2 bg-white rounded-xl p-3 border-2 border-green-100 hover:border-green-400 hover:shadow-md active:bg-green-50 transition-all touch-manipulation"
-          >
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <Keyboard className="w-5 h-5 text-green-600" />
-            </div>
-            <span className="text-sm font-bold text-gray-900 text-center leading-tight">Typen</span>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Moeilijk</span>
-          </button>
-
+          {MODES.map((mode) => (
+            <button
+              key={mode.route}
+              onClick={() => navigate(`/play/${listId}/self/${mode.route}`)}
+              className={`flex flex-col items-center gap-2 bg-white rounded-xl p-3 border-2 hover:shadow-md transition-all touch-manipulation ${mode.cardCls}`}
+            >
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${mode.iconBgCls}`}>
+                {mode.icon}
+              </div>
+              <span className="text-sm font-bold text-gray-900 text-center leading-tight">{mode.label}</span>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${DIFFICULTY_BADGE[mode.difficulty]}`}>
+                {mode.difficulty}
+              </span>
+            </button>
+          ))}
         </div>
 
         {/* Divider */}

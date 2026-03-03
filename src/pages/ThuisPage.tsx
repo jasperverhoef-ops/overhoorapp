@@ -6,6 +6,7 @@ import { useAppStore } from '../stores/useAppStore';
 import { LANGUAGE_FLAGS } from '../models/types';
 import { calculateTotalXp, calculateWeeklyXp, getLevelForXp } from '../lib/xpSystem';
 import { Header } from '../components/layout/Header';
+import { useWordCounts } from '../hooks/useWordCounts';
 
 export function ThuisPage() {
   const navigate = useNavigate();
@@ -37,14 +38,7 @@ export function ThuisPage() {
     [selectedChildId]
   );
 
-  const wordCounts = useLiveQuery(async () => {
-    if (!allLists) return {};
-    const counts: Record<string, number> = {};
-    for (const list of allLists) {
-      counts[list.id] = await db.words.where('listId').equals(list.id).count();
-    }
-    return counts;
-  }, [allLists]);
+  const wordCounts = useWordCounts(allLists);
 
   if (!child) return null;
 
@@ -56,14 +50,12 @@ export function ThuisPage() {
   const playableLists = (allLists ?? []).filter((l) => (wordCounts?.[l.id] ?? 0) >= 2);
 
   // Unique recently-played lists (up to 3), in session order
-  const recentListIds: string[] = [];
+  const seen = new Set<string>();
   for (const s of sessions ?? []) {
-    if (!recentListIds.includes(s.listId) && listMap.has(s.listId)) {
-      recentListIds.push(s.listId);
-    }
-    if (recentListIds.length === 3) break;
+    if (seen.size === 3) break;
+    if (!seen.has(s.listId) && listMap.has(s.listId)) seen.add(s.listId);
   }
-  const recentLists = recentListIds.map((id) => listMap.get(id)!).filter(Boolean);
+  const recentLists = [...seen].map((id) => listMap.get(id)!);
   const hasRecentSessions = recentLists.length > 0;
   const listsToShow = hasRecentSessions ? recentLists : playableLists.slice(0, 3);
 
