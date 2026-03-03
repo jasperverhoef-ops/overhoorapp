@@ -2,8 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useCallback } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import { HomePage } from './pages/HomePage';
+import { ThuisPage } from './pages/ThuisPage';
 import { ListsPage } from './pages/ListsPage';
-import { QuizPage } from './pages/QuizPage';
 import { StatsPage } from './pages/StatsPage';
 import { ModeSelectPage } from './pages/ModeSelectPage';
 import { SelfPlaySelectPage } from './pages/SelfPlaySelectPage';
@@ -41,9 +41,10 @@ export function App() {
             </ProtectedRoute>
           }
         >
+          <Route path="/thuis" element={<ThuisPage />} />
           <Route path="/lists" element={<ListsPage />} />
           <Route path="/lists/:listId" element={<ListDetail />} />
-          <Route path="/play" element={<QuizPage />} />
+          <Route path="/play" element={<Navigate to="/thuis" replace />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/stats/:listId" element={<ListStats />} />
         </Route>

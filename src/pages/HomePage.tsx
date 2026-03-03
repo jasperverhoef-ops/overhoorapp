@@ -10,7 +10,7 @@ export function HomePage() {
 
   useEffect(() => {
     if (selectedChildId) {
-      navigate('/lists', { replace: true });
+      navigate('/thuis', { replace: true });
     }
   }, [selectedChildId, navigate]);
 

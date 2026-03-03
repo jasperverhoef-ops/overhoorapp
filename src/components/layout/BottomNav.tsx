@@ -1,9 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { BookOpen, Play, BarChart3 } from 'lucide-react';
+import { BookOpen, Home, BarChart3 } from 'lucide-react';
 
 const tabs = [
+  { to: '/thuis', label: 'Thuis', icon: Home },
   { to: '/lists', label: 'Lijsten', icon: BookOpen },
-  { to: '/play', label: 'Spelen', icon: Play },
   { to: '/stats', label: 'Statistieken', icon: BarChart3 },
 ];
 
