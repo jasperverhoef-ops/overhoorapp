@@ -28,6 +28,33 @@ db.version(2).stores({
   await tx.table('words').bulkAdd(words);
 });
 
+// v3: replace Jasper's 12-word lists with expanded 25-word lists
+db.version(3).stores({
+  children: 'id, name',
+  wordLists: 'id, childId, name, createdAt',
+  words: 'id, listId',
+  sessions: 'id, childId, listId, status, startedAt',
+}).upgrade(async (tx) => {
+  // Find Jasper's account
+  const children = await tx.table('children').toArray();
+  const jasper = children.find((c: Child) => c.name === 'Jasper');
+  if (jasper) {
+    // Remove old lists and words
+    const oldLists = await tx.table('wordLists').where('childId').equals(jasper.id).toArray();
+    const oldListIds = oldLists.map((l: WordList) => l.id);
+    for (const listId of oldListIds) {
+      await tx.table('words').where('listId').equals(listId).delete();
+    }
+    await tx.table('wordLists').where('childId').equals(jasper.id).delete();
+    await tx.table('children').delete(jasper.id);
+  }
+  // Re-add with expanded word lists
+  const { child, lists, words } = createJasperSeed();
+  await tx.table('children').add(child);
+  await tx.table('wordLists').bulkAdd(lists);
+  await tx.table('words').bulkAdd(words);
+});
+
 // Seed all children on first launch (new installs skip upgrades)
 db.on('populate', (tx) => {
   tx.table('children').bulkAdd([
