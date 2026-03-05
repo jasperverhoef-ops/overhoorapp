@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowLeft, Volume2, VolumeX, ChevronDown, Home } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Home } from 'lucide-react';
 import { db } from '../../db';
 import { useAppStore } from '../../stores/useAppStore';
 import { useSessionStore } from '../../stores/useSessionStore';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { TtsToggleButton } from '../quiz/TtsToggleButton';
 import type { Child } from '../../models/types';
 
 interface HeaderProps {
@@ -21,10 +22,6 @@ export function Header({ title, showBack, right }: HeaderProps) {
   const selectedChildId = useAppStore((s) => s.selectedChildId);
   const selectChild = useAppStore((s) => s.selectChild);
   const clearChild = useAppStore((s) => s.clearChild);
-  const soundEnabled = useAppStore((s) => s.soundEnabled);
-  const toggleSound = useAppStore((s) => s.toggleSound);
-  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
-  const toggleTts = useAppStore((s) => s.toggleTts);
   const activeSession = useSessionStore((s) => s.active);
   const abandonSession = useSessionStore((s) => s.abandonSession);
   const [showChildPicker, setShowChildPicker] = useState(false);
@@ -138,18 +135,7 @@ export function Header({ title, showBack, right }: HeaderProps) {
           <h1 className="text-lg font-bold text-gray-900 truncate flex-1">{title}</h1>
 
           <div className="flex items-center gap-1 ml-2">
-            <button
-              onClick={() => { toggleTts(); if (!soundEnabled) toggleSound(); }}
-              className={`p-2 rounded-lg hover:bg-gray-100 touch-manipulation transition-colors ${
-                ttsEnabled
-                  ? 'text-blue-500 bg-blue-50'
-                  : 'text-gray-300'
-              }`}
-              aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-              title={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-            >
-              {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-            </button>
+            <TtsToggleButton />
             {right}
           </div>
         </div>

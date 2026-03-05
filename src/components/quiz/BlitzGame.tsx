@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Zap, X, Trophy, Check, X as XIcon, Pause, Play, Volume2, VolumeX } from 'lucide-react';
+import { Zap, X, Trophy, Check, X as XIcon, Pause, Play } from 'lucide-react';
 import { LANGUAGE_FLAGS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 import { useAppStore } from '../../stores/useAppStore';
-import { speakWord } from '../../lib/tts';
+import { useAutoSpeak } from '../../hooks/useAutoSpeak';
 import { playCorrectSound, playWrongSound } from '../../lib/sounds';
+import { TtsToggleButton } from './TtsToggleButton';
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 
 const BLITZ_DURATION = 40; // seconds
@@ -99,8 +100,6 @@ export function BlitzGame({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const processingRef = useRef(false);
   const soundEnabled = useAppStore((s) => s.soundEnabled);
-  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
-  const toggleTts = useAppStore((s) => s.toggleTts);
 
   const savedHighscore = useMemo(() => getBlitzHighscore(childId, listId), [childId, listId]);
   const [isNewHighscore, setIsNewHighscore] = useState(false);
@@ -144,12 +143,7 @@ export function BlitzGame({
     : '';
   const displayFlag = isSourceToDutch ? LANGUAGE_FLAGS[sourceLanguage] : '\u{1F1F3}\u{1F1F1}';
   const displayLanguage = isSourceToDutch ? sourceLanguage : 'nl' as const;
-
-  useEffect(() => {
-    if (ttsEnabled && displayWord && !gameOver) {
-      speakWord(displayWord, displayLanguage);
-    }
-  }, [ttsEnabled, currentIndex, displayWord, displayLanguage, gameOver]);
+  useAutoSpeak(displayWord, displayLanguage, current?.word.id ?? '', !gameOver);
 
   const processAnswer = useCallback((answeredTrue: boolean) => {
     if (processingRef.current || gameOver || !current) return;
@@ -348,15 +342,7 @@ export function BlitzGame({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-lg font-bold text-orange-600 tabular-nums">{score}</span>
-          <button
-            onClick={toggleTts}
-            className={`p-1.5 rounded-lg transition-colors touch-manipulation ${
-              ttsEnabled ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:bg-gray-100'
-            }`}
-            aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-          >
-            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </button>
+          <TtsToggleButton size="sm" />
           <button
             onClick={() => setPaused(p => !p)}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"

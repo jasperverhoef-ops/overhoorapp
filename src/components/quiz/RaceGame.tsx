@@ -1,9 +1,9 @@
-import { Flag, X, Heart, Zap, Pause, Play, Volume2, VolumeX } from 'lucide-react';
-import { useAppStore } from '../../stores/useAppStore';
+import { Flag, X, Heart, Zap, Pause, Play } from 'lucide-react';
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 import {
   MAX_LIVES, GATE_HIT_ZONE, LEFT_LANE, RIGHT_LANE,
 } from './race/constants';
+import { TtsToggleButton } from './TtsToggleButton';
 import { useRaceGameLoop } from './race/useRaceGameLoop';
 import { RaceEndScreen } from './race/RaceEndScreen';
 import './race/race-animations.css';
@@ -28,9 +28,6 @@ export function RaceGame({ words, sourceLanguage, childName, childId, listId, on
     setLane, togglePause, handleFinish,
     gridRef, dividerRef, gateContainerRef, finishLineRef, scanLineRefs, speedLineRefs,
   } = useRaceGameLoop({ words, sourceLanguage, childId, listId, onComplete });
-
-  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
-  const toggleTts = useAppStore((s) => s.toggleTts);
 
   const isCountingDown = countdown >= 0;
   const carLaneX = lane === 'left' ? LEFT_LANE : RIGHT_LANE;
@@ -84,15 +81,7 @@ export function RaceGame({ words, sourceLanguage, childName, childId, listId, on
             <span className="text-sm font-bold text-cyan-400 tabular-nums">{score}</span>
             <span className="text-xs text-cyan-600">/{totalWords}</span>
           </div>
-          <button
-            onClick={toggleTts}
-            className={`p-1.5 rounded-lg transition-colors touch-manipulation ${
-              ttsEnabled ? 'text-blue-400 bg-blue-500/20' : 'text-slate-600 hover:text-slate-400'
-            }`}
-            aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-          >
-            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </button>
+          <TtsToggleButton variant="dark" size="sm" />
           <button onClick={togglePause} className="p-1.5 text-slate-500 hover:text-slate-300 rounded-lg transition-colors" aria-label={paused ? 'Hervat' : 'Pauze'}>
             {paused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
           </button>

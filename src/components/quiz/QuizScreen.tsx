@@ -7,6 +7,7 @@ import { useTimerStore } from '../../stores/useTimerStore';
 import { useAppStore } from '../../stores/useAppStore';
 import { getMasteryProgress } from '../../lib/round3Queue';
 import { playCorrectSound, playWrongSound } from '../../lib/sounds';
+import { stopSpeaking } from '../../lib/tts';
 import { getRandomQuote, getNextQuoteThreshold } from '../../lib/motivationQuotes';
 import { updateDailyHighStreak, getDailyHighStreak } from '../../lib/streakTracker';
 import { RoundIntro } from './RoundIntro';
@@ -208,6 +209,7 @@ export function QuizScreen() {
   }, [completeSession]);
 
   const handleQuit = useCallback(() => {
+    stopSpeaking();
     abandonSession();
     navigate('/play');
   }, [abandonSession, navigate]);

@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Lightbulb, X, Zap, Trophy, Send, Volume2, VolumeX } from 'lucide-react';
+import { Lightbulb, X, Zap, Trophy, Send, Volume2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { TimerDisplay } from './TimerDisplay';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { getHint, MAX_HINT_LEVEL } from '../../lib/hintSystem';
-import { useAppStore } from '../../stores/useAppStore';
 import { speakWord } from '../../lib/tts';
+import { useAutoSpeak } from '../../hooks/useAutoSpeak';
 import type { RoundWord, Language, MasteryItem, ChoiceOption, HintLevel, GameType } from '../../models/types';
 import { roundColors } from './roundColors';
+import { TtsToggleButton } from './TtsToggleButton';
 
 interface SelfTrainWordCardProps {
   round: 1 | 2 | 3;
@@ -85,8 +86,6 @@ export function SelfTrainWordCard({
   const [typingResult, setTypingResult] = useState<'correct' | 'wrong' | 'nearly-correct' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const colors = roundColors[round];
-  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
-  const toggleTts = useAppStore((s) => s.toggleTts);
 
   // Determine what to show
   const isSourceToDutch = word.direction === 'source-to-dutch';
@@ -94,19 +93,13 @@ export function SelfTrainWordCard({
   const correctAnswer = isSourceToDutch ? word.word.dutchWord : word.word.sourceWord;
   const displayFlag = isSourceToDutch ? LANGUAGE_FLAGS[sourceLanguage] : '\u{1F1F3}\u{1F1F1}';
   const displayLanguage = isSourceToDutch ? sourceLanguage : 'nl' as const;
+  const ttsEnabled = useAutoSpeak(displayWord, displayLanguage, word.word.id);
   const directionLabel = isSourceToDutch
     ? `${LANGUAGE_LABELS[sourceLanguage]} \u2192 NL`
     : `NL \u2192 ${LANGUAGE_LABELS[sourceLanguage]}`;
 
   // Get current hint
   const currentHint = getHint(word.word, word.direction, hintLevel, sourceLanguage);
-
-  // Auto-speak word when it appears (TTS enabled)
-  useEffect(() => {
-    if (ttsEnabled) {
-      speakWord(displayWord, displayLanguage);
-    }
-  }, [ttsEnabled, word.word.id, displayWord, displayLanguage]);
 
   // Auto-focus input in typing mode
   useEffect(() => {
@@ -279,16 +272,7 @@ export function SelfTrainWordCard({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={toggleTts}
-            className={`p-2 rounded-lg transition-colors touch-manipulation ${
-              ttsEnabled ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:bg-gray-100'
-            }`}
-            aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-            title={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-          >
-            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </button>
+          <TtsToggleButton />
           <TimerDisplay />
           <button
             onClick={onQuit}

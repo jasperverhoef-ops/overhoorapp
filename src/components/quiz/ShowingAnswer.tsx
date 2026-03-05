@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
 import type { RoundWord, Language } from '../../models/types';
 import { LANGUAGE_LABELS } from '../../models/types';
-import { useAppStore } from '../../stores/useAppStore';
-import { speakWord } from '../../lib/tts';
+import { useAutoSpeak } from '../../hooks/useAutoSpeak';
+import { TtsToggleButton } from './TtsToggleButton';
 
 interface ShowingAnswerProps {
   word: RoundWord;
@@ -16,12 +15,11 @@ interface ShowingAnswerProps {
 export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: ShowingAnswerProps) {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
-  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
-  const toggleTts = useAppStore((s) => s.toggleTts);
   const isSourceToDutch = word.direction === 'source-to-dutch';
   const displayWord = isSourceToDutch ? word.word.sourceWord : word.word.dutchWord;
   const correctAnswer = isSourceToDutch ? word.word.dutchWord : word.word.sourceWord;
   const answerLanguage = isSourceToDutch ? 'nl' as const : sourceLanguage;
+  useAutoSpeak(correctAnswer, answerLanguage, word.word.id);
   const directionLabel = isSourceToDutch
     ? `${LANGUAGE_LABELS[sourceLanguage]} \u2192 NL`
     : `NL \u2192 ${LANGUAGE_LABELS[sourceLanguage]}`;
@@ -30,13 +28,6 @@ export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: Showin
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
   }, []);
-
-  // Speak the correct answer aloud
-  useEffect(() => {
-    if (ttsEnabled) {
-      speakWord(correctAnswer, answerLanguage);
-    }
-  }, [ttsEnabled, correctAnswer, answerLanguage]);
 
   useEffect(() => {
     const start = Date.now();
@@ -60,16 +51,7 @@ export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: Showin
         <span className="text-sm font-medium text-gray-600">
           Ronde {round} \u00B7 {directionLabel}
         </span>
-        <button
-          onClick={toggleTts}
-          className={`p-2 rounded-lg transition-colors touch-manipulation ${
-            ttsEnabled ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:bg-gray-100'
-          }`}
-          aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-          title={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-        >
-          {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-        </button>
+        <TtsToggleButton />
       </div>
 
       {/* Content area - matches word card layout */}

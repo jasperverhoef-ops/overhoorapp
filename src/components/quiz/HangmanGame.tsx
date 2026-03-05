@@ -1,14 +1,15 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { X, Volume2, VolumeX } from 'lucide-react';
+import { X, Volume2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { TimerDisplay } from './TimerDisplay';
 import { ProgressBar } from '../ui/ProgressBar';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
-import { useAppStore } from '../../stores/useAppStore';
 import { speakWord } from '../../lib/tts';
+import { useAutoSpeak } from '../../hooks/useAutoSpeak';
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 import { roundColors } from './roundColors';
+import { TtsToggleButton } from './TtsToggleButton';
 
 interface HangmanGameProps {
   words: Word[];
@@ -81,17 +82,16 @@ export function HangmanGame({
   // Track which letter was just guessed for per-key feedback
   const [lastGuess, setLastGuess] = useState<{ letter: string; correct: boolean } | null>(null);
   const lastGuessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
-  const toggleTts = useAppStore((s) => s.toggleTts);
 
   const currentWord = wordList[currentIndex];
-  if (!currentWord && !gameOver) return null;
-
   const isSourceToDutch = direction === 'source-to-dutch';
   const displayWord = currentWord ? (isSourceToDutch ? currentWord.sourceWord : currentWord.dutchWord) : '';
   const answer = currentWord ? (isSourceToDutch ? currentWord.dutchWord : currentWord.sourceWord) : '';
   const displayFlag = isSourceToDutch ? LANGUAGE_FLAGS[sourceLanguage] : '\u{1F1F3}\u{1F1F1}';
   const displayLanguage = isSourceToDutch ? sourceLanguage : 'nl' as const;
+  const ttsEnabled = useAutoSpeak(displayWord, displayLanguage, currentWord?.id ?? '');
+
+  if (!currentWord && !gameOver) return null;
   const directionLabel = isSourceToDutch
     ? `${LANGUAGE_LABELS[sourceLanguage]} \u2192 NL`
     : `NL \u2192 ${LANGUAGE_LABELS[sourceLanguage]}`;
@@ -157,13 +157,6 @@ export function HangmanGame({
     // Clear the per-key highlight after 500ms
     lastGuessTimerRef.current = setTimeout(() => setLastGuess(null), 500);
   }, [guessedLetters, showResult, gameOver, answerLettersNormalized, answerChars, wrongCount, currentWord?.id, direction, currentIndex, wordList]);
-
-  // Auto-speak word when it appears (TTS enabled)
-  useEffect(() => {
-    if (ttsEnabled && displayWord) {
-      speakWord(displayWord, displayLanguage);
-    }
-  }, [ttsEnabled, currentIndex, displayWord, displayLanguage]);
 
   // Keyboard listener
   useEffect(() => {
@@ -245,15 +238,7 @@ export function HangmanGame({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={toggleTts}
-            className={`p-2 rounded-lg transition-colors touch-manipulation ${
-              ttsEnabled ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:bg-gray-100'
-            }`}
-            aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-          >
-            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </button>
+          <TtsToggleButton />
           <TimerDisplay />
           <button onClick={onQuit} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" aria-label="Stop quiz">
             <X className="w-5 h-5" />

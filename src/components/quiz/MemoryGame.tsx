@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Volume2, VolumeX } from 'lucide-react';
+import { X } from 'lucide-react';
 import { TimerDisplay } from './TimerDisplay';
 import { ProgressBar } from '../ui/ProgressBar';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 import { useAppStore } from '../../stores/useAppStore';
+import { speakWord } from '../../lib/tts';
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 import { roundColors } from './roundColors';
+import { TtsToggleButton } from './TtsToggleButton';
 
 interface MemoryGameProps {
   round: 1 | 2 | 3;
@@ -37,7 +39,6 @@ export function MemoryGame({
   onQuit,
 }: MemoryGameProps) {
   const ttsEnabled = useAppStore((s) => s.ttsEnabled);
-  const toggleTts = useAppStore((s) => s.toggleTts);
 
   // Take a subset of words for this memory round
   const gameWords = useMemo(() => {
@@ -102,6 +103,11 @@ export function MemoryGame({
     if (flipped.has(card.id)) return;
     if (matched.has(card.wordId) && selected.length === 0) return;
 
+    if (ttsEnabled) {
+      const lang = card.type === 'source' ? sourceLanguage : 'nl' as const;
+      speakWord(card.text, lang);
+    }
+
     const newFlipped = new Set(flipped);
     newFlipped.add(card.id);
     setFlipped(newFlipped);
@@ -140,7 +146,7 @@ export function MemoryGame({
         }, 800);
       }
     }
-  }, [lockBoard, flipped, matched, selected]);
+  }, [lockBoard, flipped, matched, selected, ttsEnabled, sourceLanguage]);
 
   // Determine grid columns based on number of cards
   const totalCards = cards.length;
@@ -160,16 +166,7 @@ export function MemoryGame({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={toggleTts}
-            className={`p-2 rounded-lg transition-colors touch-manipulation ${
-              ttsEnabled ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:bg-gray-100'
-            }`}
-            aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-            title={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-          >
-            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </button>
+          <TtsToggleButton />
           <TimerDisplay />
           <button
             onClick={onQuit}

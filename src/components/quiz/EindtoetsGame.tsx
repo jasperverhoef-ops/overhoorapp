@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ClipboardCheck, ChevronRight, X, ChevronDown, Share2, Volume2, VolumeX } from 'lucide-react';
+import { ClipboardCheck, ChevronRight, X, ChevronDown, Share2 } from 'lucide-react';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
-import { useAppStore } from '../../stores/useAppStore';
-import { speakWord } from '../../lib/tts';
+import { useAutoSpeak } from '../../hooks/useAutoSpeak';
+import { TtsToggleButton } from './TtsToggleButton';
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 
 function normalizeAnswer(s: string): string {
@@ -135,8 +135,6 @@ export function EindtoetsGame({
   const [results, setResults] = useState<ToetsResult[]>([]);
   const [showWrongAnswers, setShowWrongAnswers] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
-  const toggleTts = useAppStore((s) => s.toggleTts);
 
   const current = toetsQueue[currentIndex];
   const totalWords = toetsQueue.length;
@@ -148,19 +146,13 @@ export function EindtoetsGame({
   const displayLanguage = current
     ? isSourceToDutch ? sourceLanguage : 'nl' as const
     : 'nl' as const;
+  useAutoSpeak(current?.questionWord ?? '', displayLanguage, current?.word.id ?? '', phase === 'testing');
 
   const directionLabel = current
     ? isSourceToDutch
       ? `${LANGUAGE_LABELS[sourceLanguage]} \u2192 NL`
       : `NL \u2192 ${LANGUAGE_LABELS[sourceLanguage]}`
     : '';
-
-  // Speak word
-  useEffect(() => {
-    if (ttsEnabled && phase === 'testing' && current) {
-      speakWord(current.questionWord, displayLanguage);
-    }
-  }, [ttsEnabled, currentIndex, phase, current, displayLanguage]);
 
   // Focus input
   useEffect(() => {
@@ -374,15 +366,7 @@ export function EindtoetsGame({
           Vraag {currentIndex + 1}/{totalWords}
         </span>
         <div className="flex items-center gap-1">
-          <button
-            onClick={toggleTts}
-            className={`p-1.5 rounded-lg transition-colors touch-manipulation ${
-              ttsEnabled ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:bg-gray-100'
-            }`}
-            aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
-          >
-            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </button>
+          <TtsToggleButton size="sm" />
           <button onClick={onQuit} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg transition-colors" aria-label="Stop">
             <X className="w-5 h-5" />
           </button>

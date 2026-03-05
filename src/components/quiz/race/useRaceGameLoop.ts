@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../../models/types';
 import { shuffle } from '../../../lib/shuffleUtils';
 import { useAppStore } from '../../../stores/useAppStore';
-import { speakWord } from '../../../lib/tts';
+import { useAutoSpeak } from '../../../hooks/useAutoSpeak';
 import { playCorrectSound, playWrongSound, playPerfectSound } from '../../../lib/sounds';
 import type { Language, Direction, AnswerResult } from '../../../models/types';
 import type { Word } from '../../../models/types';
@@ -116,7 +116,6 @@ export function useRaceGameLoop({ words, sourceLanguage, childId, listId, onComp
   const [bestStreak, setBestStreak] = useState(0);
 
   const soundEnabled = useAppStore((s) => s.soundEnabled);
-  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
   const soundEnabledRef = useRef(soundEnabled);
   soundEnabledRef.current = soundEnabled;
 
@@ -140,6 +139,7 @@ export function useRaceGameLoop({ words, sourceLanguage, childId, listId, onComp
   const displayLanguage: Language | 'nl' = current
     ? isSourceToDutch ? sourceLanguage : 'nl' as const
     : 'nl' as const;
+  useAutoSpeak(displayWord, displayLanguage, current?.word.id ?? '', !gameOver && !raceFinished);
   const progressPct = totalWords > 0 ? (currentIndex / totalWords) * 100 : 0;
   const directionLabel = current
     ? isSourceToDutch
@@ -217,13 +217,6 @@ export function useRaceGameLoop({ words, sourceLanguage, childId, listId, onComp
       gs.current.startTime = Date.now();
     }
   }, [isRacing]);
-
-  // --- TTS ---
-  useEffect(() => {
-    if (ttsEnabled && displayWord && !gameOver && !raceFinished) {
-      speakWord(displayWord, displayLanguage);
-    }
-  }, [ttsEnabled, currentIndex, displayWord, displayLanguage, gameOver, raceFinished]);
 
   // --- Gate content when word changes ---
   useEffect(() => {
