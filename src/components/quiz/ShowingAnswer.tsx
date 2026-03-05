@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Volume2, VolumeX } from 'lucide-react';
 import type { RoundWord, Language } from '../../models/types';
 import { LANGUAGE_LABELS } from '../../models/types';
 import { useAppStore } from '../../stores/useAppStore';
@@ -16,6 +17,7 @@ export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: Showin
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
   const ttsEnabled = useAppStore((s) => s.ttsEnabled);
+  const toggleTts = useAppStore((s) => s.toggleTts);
   const isSourceToDutch = word.direction === 'source-to-dutch';
   const displayWord = isSourceToDutch ? word.word.sourceWord : word.word.dutchWord;
   const correctAnswer = isSourceToDutch ? word.word.dutchWord : word.word.sourceWord;
@@ -58,6 +60,16 @@ export function ShowingAnswer({ word, sourceLanguage, round, onDismiss }: Showin
         <span className="text-sm font-medium text-gray-600">
           Ronde {round} \u00B7 {directionLabel}
         </span>
+        <button
+          onClick={toggleTts}
+          className={`p-2 rounded-lg transition-colors touch-manipulation ${
+            ttsEnabled ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:bg-gray-100'
+          }`}
+          aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
+          title={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
+        >
+          {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+        </button>
       </div>
 
       {/* Content area - matches word card layout */}

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { X } from 'lucide-react';
+import { X, Volume2, VolumeX } from 'lucide-react';
 import { TimerDisplay } from './TimerDisplay';
 import { ProgressBar } from '../ui/ProgressBar';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
+import { useAppStore } from '../../stores/useAppStore';
 import type { Word, Language, Direction, AnswerResult } from '../../models/types';
 import { roundColors } from './roundColors';
 
@@ -35,6 +36,9 @@ export function MemoryGame({
   onComplete,
   onQuit,
 }: MemoryGameProps) {
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
+  const toggleTts = useAppStore((s) => s.toggleTts);
+
   // Take a subset of words for this memory round
   const gameWords = useMemo(() => {
     const shuffled = shuffle([...words]);
@@ -155,7 +159,17 @@ export function MemoryGame({
             <span className="text-xs text-gray-500">{directionLabel}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleTts}
+            className={`p-2 rounded-lg transition-colors touch-manipulation ${
+              ttsEnabled ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:bg-gray-100'
+            }`}
+            aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
+            title={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
+          >
+            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          </button>
           <TimerDisplay />
           <button
             onClick={onQuit}
