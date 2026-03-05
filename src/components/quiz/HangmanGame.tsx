@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { X, Volume2 } from 'lucide-react';
+import { X, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { TimerDisplay } from './TimerDisplay';
 import { ProgressBar } from '../ui/ProgressBar';
@@ -82,6 +82,7 @@ export function HangmanGame({
   const [lastGuess, setLastGuess] = useState<{ letter: string; correct: boolean } | null>(null);
   const lastGuessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ttsEnabled = useAppStore((s) => s.ttsEnabled);
+  const toggleTts = useAppStore((s) => s.toggleTts);
 
   const currentWord = wordList[currentIndex];
   if (!currentWord && !gameOver) return null;
@@ -243,7 +244,16 @@ export function HangmanGame({
             <span className="text-xs text-gray-500">{directionLabel}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleTts}
+            className={`p-2 rounded-lg transition-colors touch-manipulation ${
+              ttsEnabled ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:bg-gray-100'
+            }`}
+            aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
+          >
+            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          </button>
           <TimerDisplay />
           <button onClick={onQuit} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" aria-label="Stop quiz">
             <X className="w-5 h-5" />

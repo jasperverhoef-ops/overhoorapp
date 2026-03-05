@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ClipboardCheck, ChevronRight, X, ChevronDown, Share2 } from 'lucide-react';
+import { ClipboardCheck, ChevronRight, X, ChevronDown, Share2, Volume2, VolumeX } from 'lucide-react';
 import { LANGUAGE_FLAGS, LANGUAGE_LABELS } from '../../models/types';
 import { shuffle } from '../../lib/shuffleUtils';
 import { useAppStore } from '../../stores/useAppStore';
@@ -136,6 +136,7 @@ export function EindtoetsGame({
   const [showWrongAnswers, setShowWrongAnswers] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const ttsEnabled = useAppStore((s) => s.ttsEnabled);
+  const toggleTts = useAppStore((s) => s.toggleTts);
 
   const current = toetsQueue[currentIndex];
   const totalWords = toetsQueue.length;
@@ -372,9 +373,20 @@ export function EindtoetsGame({
         <span className="text-sm font-semibold text-gray-500">
           Vraag {currentIndex + 1}/{totalWords}
         </span>
-        <button onClick={onQuit} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg transition-colors" aria-label="Stop">
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleTts}
+            className={`p-1.5 rounded-lg transition-colors touch-manipulation ${
+              ttsEnabled ? 'text-blue-500 bg-blue-50' : 'text-gray-300 hover:bg-gray-100'
+            }`}
+            aria-label={ttsEnabled ? 'Voorlezen uit' : 'Voorlezen aan'}
+          >
+            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          </button>
+          <button onClick={onQuit} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg transition-colors" aria-label="Stop">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Progress bar */}

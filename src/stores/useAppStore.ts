@@ -16,7 +16,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       selectedChildId: null,
       soundEnabled: true,
-      ttsEnabled: false,
+      ttsEnabled: true,
       selectChild: (childId) => set({ selectedChildId: childId }),
       clearChild: () => set({ selectedChildId: null }),
       toggleSound: () => set({ soundEnabled: !get().soundEnabled }),
